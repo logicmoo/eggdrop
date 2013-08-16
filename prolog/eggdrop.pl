@@ -26,11 +26,11 @@
 :- endif.
 
 :- kb_shared(baseKB:prologBuiltin/1).
-:- kb_shared(baseKB:rtVerbatumArgs/1).
+:- kb_shared(baseKB:rtArgsVerbatum/1).
 
 :- dynamic(lmconf:irc_bot_nick/1).
 lmconf:irc_bot_nick("PrologMUD").
-reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(PIs).
+reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtArgsVerbatum(PIs)),export(PIs).
 
 :- reexport(irc_hooks).
 
