@@ -58,9 +58,9 @@ join(USER, HOSTAMSK,TYPE,DEST):- dmsg(notice(join(USER, HOSTAMSK,TYPE,DEST))).
 msgm(USER, HOSTAMSK,TYPE,DEST,MESSAGE):-pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE).
 pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE):- 
  dmsg(pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE)), !,
-  with_assertions(thlocal:default_channel(DEST),
+  call_in_thread((with_assertions(thlocal:default_channel(DEST),
    with_assertions(thlocal:default_user(USER),
-     ircEvent(DEST,USER,say(MESSAGE)))).
+     ircEvent(DEST,USER,say(MESSAGE)))))).
 
 
 % IRC EVENTS
@@ -71,6 +71,10 @@ ircEvent("swipl",_,_):-!.  % from the process
 ircEvent(_,"swipl",_):-!.		       
 ircEvent("PrologMUD",_,_):-!. % from the irc bot
 ircEvent(_,"PrologMUD",_):-!. 
+
+:-thread_local put_server_count/1.
+
+put_server_count(0).
 
 
 ircEvent(Channel,Agent,say(W)):-fail,string_ci(W,"goodbye"),!,retractall(isChattingWith(Channel,Agent)).
@@ -93,12 +97,14 @@ ircEvent(Channel,Agent,call(CMD,Vs)):- isRegistered(Channel,Agent,executeAll),
 
 ircEvent(Channel,Agent,Method):-dmsg(ircEvent(Channel,Agent,Method)).
 
-call_with_results(CMD,[]):-!, CMD *-> write("Yes. ") ; write("No. ").
+call_in_thread(CMD):- thread_self(Self),thread_create((asserta(put_server_count(0)),call_with_time_limit(10,CMD)),_,[detached(true),inherit_from(Self)]).
+
+call_with_results(CMD,[]):-!, CMD *-> write(" Yes. ") ; write(" No. ").
 call_with_results(CMD,Vs):- 
   deterministic(SoFar),dmsg(deterministic(SoFar)),
   call_with_results_1(CMD,Vs).
 
-call_with_results_1(CMD,Vs):- call_with_results_2(CMD,Vs) *-> (deterministic(X),flag(num_sols,N,0),write(deterministic(X,N)),write(' ')) ; write('No. ').
+call_with_results_1(CMD,Vs):- call_with_results_2(CMD,Vs) *-> (deterministic(X),flag(num_sols,N,0),write(' '),write(deterministic(X,N)),write(' ')) ; (deterministic(X),flag(num_sols,N,0),write(' '),write(deterministic(X,N)),write(' No. ')).
 call_with_results_2(CMD,Vs):- flag(num_sols,_,0),
       CMD,flag(num_sols,N,N+1),deterministic(Done),once(Done==true -> (writeq(Vs),write('. ')) ; (writeq(Vs),write('; '),N>8)).
 
@@ -113,6 +119,8 @@ with_io(CMD):-
    call_cleanup(true,CMD,(set_input(IN),set_output(OUT))).
 
 
+with_no_input(CMD):- !,
+ open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),CMD.
 with_no_input(CMD):- 
  open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
 
@@ -159,13 +167,13 @@ update_changed_files_eggdrop :-
 	).
 
   
-say(Channel,DataI):-sayable_string(DataI,Data),
+say(Channel,Data):-
 	once(stdio(_Agent,_InStream,OutStream);current_output(OutStream)),
 	say(OutStream,Channel,Data).
 
 say(_,NonList,Data):-is_stream(NonList),!,say(NonList,"console",Data),!.
 say(OutStream,NonList,Data):-not(is_list(NonList)),text_to_string(NonList, S),string_codes(S,Codes),!,say(OutStream,Codes,Data).
-say(OutStream,Channel,Data):-atomic(Data),!,
+say(OutStream,Channel,Text):-any_to_string(Text,Data),
 	concat_atom(List,'\n',Data),
 	say_list(OutStream,Channel,List),!.
 
@@ -175,11 +183,18 @@ say(OutStream,Channel,Data):-
 say(OutStream,Channel,Data):-dmsg(say(OutStream,Channel,Data)).
 
 say_list(_OutStream,_Channel,[]).
-say_list(OutStream,Channel,[N|L]):-
-	ignore(catch(format(OutStream,'\n.msg ~s ~w\n',[Channel,N]),_,fail)),
-	% ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~w" ;  return "noerror ."\n',[Channel,N]),_,fail)),	
-	flush_output(OutStream),
+say_list(OutStream,Channel,[N|L]):-	
+	privmsg(OutStream,Channel,N),
+        flush_output(OutStream),
 	say_list(OutStream,Channel,L),!.
+
+check_put_server_count(Max):-retract(put_server_count(Was)),Is is Was+1,asserta(put_server_count(Is)),!,Is =< Max.
+% 
+% 
+privmsg(OutStream,Channel,Text):-check_put_server_count(10)->privmsg0(OutStream,Channel,Text);true.
+privmsg0(OutStream,Channel,Text):-ignore(catch(format(OutStream,'\n.msg ~s ~w\n',[Channel,Text]),_,fail)).
+% privmsg0(OutStream,Channel,Text):- escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~s" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
+putnotice(OutStream,Channel,Text):-escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "NOTICE ~s :~w" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
 
 to_egg(X):-to_egg('~w',[X]),!.
 to_egg(X,Y):-once(stdio(_Agent,_InStream,OutStream)),once((sformat(S,X,Y),format(OutStream,'~s\n',[S]),!,flush_output(OutStream))).
@@ -203,7 +218,14 @@ sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
 say(D):- thlocal:default_channel(C),!,say(C,D),!.
 say(D):- say("#prologMUD",D),!.
 
-sayable_string(I,S):- any_to_string(I,S).
+
+escape_quotes(I,ISO):-
+                term_string(I,IS),!,
+		string_to_list(IS,LIST),!,
+		list_replace(LIST,92,[92,92],LISTM),
+		list_replace(LISTM,34,[92,34],LISTM2),
+                list_replace(LISTM2,91,[92,91],LISTO),
+		text_to_string(LISTO,ISO),!.
 
 list_replace(List,Char,Replace,NewList):-
 	append(Left,[Char|Right],List),
