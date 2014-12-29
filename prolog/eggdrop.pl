@@ -8,173 +8,139 @@ dmsg(CMD):-format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
 % Conenctors
 % ===================================================================
 
+% [Optionaly] Solve the Halting problem
+:-redefine_system_predicate(system:halt).
+:-abolish(system:halt,0).
+system:halt:- format('the halting problem is now solved!').
+
+bot_nick("PrologMUD").
+ctrl_nick("swipl").
+
 :-use_module(library(socket)).
 :- dynamic(stdio/3).
 eggdropConnect:- eggdropConnect('swipl',3334).
-eggdropConnect(BotNick,Port):-eggdropConnect('127.0.0.1',Port,BotNick,logicmoo).
-eggdropConnect(Host,Port,Agent,Pass):-
+eggdropConnect(CtrlNick,Port):-eggdropConnect('127.0.0.1',Port,CtrlNick,logicmoo).
+eggdropConnect(Host,Port,CtrlNick,Pass):-
        tcp_socket(SocketId),
        tcp_connect(SocketId,Host:Port),
-       tcp_open_socket(SocketId, InStream, OutStream),
-       format(OutStream,'~w\n',[Agent]),flush_output(OutStream),
+       tcp_open_socket(SocketId, IN, OutStream),
+       format(OutStream,'~w\n',[CtrlNick]),flush_output(OutStream),
        format(OutStream,'~w\n',[Pass]),flush_output(OutStream),
-       retractall(stdio(Agent,_,_)),
-       asserta((stdio(Agent,InStream,OutStream))),!.
+       retractall(stdio(CtrlNick,_,_)),
+       asserta((stdio(CtrlNick,IN,OutStream))),!.
 		
-consultation_thread(BotNick,Port):- 
-      eggdropConnect(BotNick,Port),
+consultation_thread(CtrlNick,Port):- 
+      eggdropConnect(CtrlNick,Port),
       to_egg('.echo off\n'),
-      to_egg('.console ~w ""\n',[BotNick]),
-      to_egg('eot.\n',[]),
-      stdio(BotNick,InStream,_),!,
+      to_egg('.console ~w ""\n',[CtrlNick]),
+      stdio(CtrlNick,IN,_),!,
+      % loop
       repeat,
-      update_changed_files,
-      read_line_to_codes(InStream,Codes),
-      once(consultation_codes(BotNick,Codes)),
-      fail.
+         update_changed_files_eggdrop,
+         read_line_to_codes(IN,Codes),
+         once(consultation_codes(CtrlNick,Codes)),
+         fail.
 
 consultation_codes(_BotNick,Codes):-
-      text_to_string(Codes,String),!,
+      text_to_string(Codes,String),
       catch(read_term_from_atom(String,CMD,[]),_E,(dmsg(String),fail)), !,
       dmsg(CMD),!,
       CMD\=end_of_file,
-      catch(CMD,E,dmsg(E)),
+      catch(CMD,E,dmsg(E:CMD)),
       fail.
 
-get2react([L|IST1]):- % convert_to_strings(IST1,IST2), 
-  CALL =.. [L|IST1], catch(CALL,E,dmsg(E)).
+% IRC EVENTS Bubble from here
+get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),current_predicate(F/A),catch(CALL,E,dmsg(E)).
 
-convert_to_strings([],[]):-!.
-convert_to_strings([IS|T1],[I|ST2]):-convert_to_string(IS,I),!,convert_to_strings(T1,ST2).
-
-term_to_string(I,IS):- catch(string_to_atom(IS,I),_,(term_to_atom(I,A),string_to_atom(IS,A))),!.
-
-convert_to_string(I,ISO):-
-                term_to_string(I,IS),!,
-		string_to_list(IS,LIST),!,
-		list_replace(LIST,92,[92,92],LISTM),
-		list_replace(LISTM,34,[92,34],LISTO),
-		string_to_atom(ISO,LISTO),!.
-
-list_replace(List,Char,Replace,NewList):-
-	append(Left,[Char|Right],List),
-	append(Left,Replace,NewLeft),
-	list_replace(Right,Char,Replace,NewRight),
-	append(NewLeft,NewRight,NewList),!.
-list_replace(List,_Char,_Replace,List):-!.
-
+% IRC EVENTS FROM CALL
 part(USER, HOSTAMSK,TYPE,DEST,MESSAGE):- dmsg(notice(part(USER, HOSTAMSK,TYPE,DEST,MESSAGE))).
 join(USER, HOSTAMSK,TYPE,DEST):- dmsg(notice(join(USER, HOSTAMSK,TYPE,DEST))).
 msgm(USER, HOSTAMSK,TYPE,DEST,MESSAGE):-pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE).
 pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE):- 
-  dmsg(pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE)), !,
+ dmsg(pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE)), !,
   with_assertions(thlocal:default_channel(DEST),
    with_assertions(thlocal:default_user(USER),
      ircEvent(DEST,USER,say(MESSAGE)))).
 
 
-eggdrop_say_to(console,Data):-!,write(Data),nl.
-eggdrop_say_to('#'(Dest),Data):-atom(Dest),!,atom_codes(Dest,Codes),eggdrop_say_to([35|Codes],Data).
-
-eggdrop_say_to(NonList,Data):-not(is_list(NonList)),text_to_string(NonList,S),string_codes(S,Codes),!,eggdrop_say_to(Codes,Data).
-eggdrop_say_to([35|Dest],Data):-!,
-	once(stdio(_Agent,_InStream,OutStream)),
-	once(chan_say(OutStream,[35|Dest],Data)),
-       % format(OutStream,'eot.\n',[Dest,Data]),
-	flush_output(OutStream),
-	flush_output(user_error),!.
-eggdrop_say_to(Dest,Data):-atom(Dest),!,atom_codes(Dest,Codes),eggdrop_say_to(Codes,Data).
-eggdrop_say_to(Dest,Data):-!,
-	once(stdio(_Agent,_InStream,OutStream)),
-	ignore(catch(format(OutStream,'.msg ~s :~w\n',[Dest,Data]),_,fail)),
-	format(OutStream,'eot.\n',[Dest,Data]),
-	flush_output(OutStream),
-	flush_output(user_error),!.	
-  
-chan_say(Channel,DataI):-
-	convert_to_string(DataI,Data),
-	once(stdio(_Agent,_InStream,OutStream)),
-	chan_say(OutStream,Channel,Data).
-
-chan_say(OutStream,NonList,Data):-not(is_list(NonList)),text_to_string(NonList, S),string_codes(S,Codes),!,chan_say(OutStream,Codes,Data).
-chan_say(OutStream,Channel,Data):-atom(Data),!,
-	concat_atom(List,'\n',Data),
-	channel_say_list(OutStream,Channel,List),!.
-
-chan_say(OutStream,Channel,Data):-
-	channel_say_list(OutStream,Channel,[Data]),!.
-
-channel_say_list(_OutStream,_Channel,[]).
-channel_say_list(OutStream,Channel,[N|L]):-
-	ignore(catch(format(OutStream,'\n.msg ~s ~w\n',[Channel,N]),_,fail)),
-	% ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~w" ;  return "noerror ."\n',[Channel,N]),_,fail)),	
-	flush_output(OutStream),
-	channel_say_list(OutStream,Channel,L),!.
-
-to_egg(X):-to_egg('~w',[X]),!.
-to_egg(X,Y):-once(stdio(_Agent,_InStream,OutStream)),once((sformat(S,X,Y),format(OutStream,'~s\n',[S]),!,flush_output(OutStream))).
-
- 
-
-% to_egg('.raw').
-eot:-!.	
-
-:-dynamic(chattingWith/2).
-
-getRegistered(Channel,Agent,kifbot):-chattingWith(Channel,Agent).
-getRegistered("#ai",_,execute):-ignore(fail).
-getRegistered("#pigface",_,execute):-ignore(fail).
-getRegistered("#logicmoo",_,execute):-ignore(fail).
-getRegistered("#kif",_,execute):-ignore(fail).
-getRegistered("#rdfig",_,execute):-ignore(fail).
-getRegistered("##prolog",_,execute):-ignore(fail).
-
-:- thread_local((thlocal:default_channel/1, thlocal:default_user/1)).
-
-say(D):-say0(said(D)).
-say0(D):- thlocal:default_channel(C),chan_say(C,D).
-say0(D):- chan_say("#prologMUD",D).
+% IRC EVENTS
 
 
-my_name_in_codes(Codes):-
-	toLowercase(Codes,Lower),!,
-	my_name_in_lcase_codes(Lower).
-	
-my_name_in_lcase_codes(Codes):-
-	append(_,[106, 108, 108|_],Codes).
-my_name_in_lcase_codes(Codes):-
-	append(_,[106,_,108, 108|_],Codes).
-
-
-ircEvent("swipl",_,_):-!.
+ircEvent([_], _, _):-!. %  from bot telnet
+ircEvent("swipl",_,_):-!.  % from the process
 ircEvent(_,"swipl",_):-!.		       
-ircEvent("PrologMUD",_,_):-!.
+ircEvent("PrologMUD",_,_):-!. % from the irc bot
 ircEvent(_,"PrologMUD",_):-!. 
-ircEvent([_], _, _):-!. %  writeSTDERR('~q',[ircEvent(Channel,Agent,Method)]),
 
 
-ircEvent(Channel,Agent,say(W)):-string_ci(W,"goodbye"),!,retractall(chattingWith(Channel,Agent)).
-ircEvent(Channel,Agent,say(W)):-(string_equal_ci(W,"PrologMUD");string_equal_ci(W,"PrologMUD?")),!,
-		retractall(chattingWith(Channel,Agent)),!,
-		asserta(chattingWith(Channel,Agent)),!,
-		chan_say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
-ircEvent(Channel,Agent,say(Codes)):- fail,!,
-	 once((my_name_in_codes(Codes);getRegistered(Channel,Agent,kifbot))),
-	 getCycLTokens(Codes,Input),!,
-	 unsetMooOption(Agent,client=_),setMooOption(Agent,client=consultation),!, 
-	 idGen(Serial),idGen(Refno),get_time(Time),
-	 sendEvent(Channel,Agent,english(phrase(Input,Codes),packet(Channel,Serial,Agent,Refno,Time))).
+ircEvent(Channel,Agent,say(W)):-fail,string_ci(W,"goodbye"),!,retractall(isChattingWith(Channel,Agent)).
+ircEvent(Channel,Agent,say(W)):-fail,(string_equal_ci(W,"PrologMUD");string_equal_ci(W,"PrologMUD?")),!,
+		retractall(isChattingWith(Channel,Agent)),!,
+		asserta(isChattingWith(Channel,Agent)),!,
+		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
 
-
-ircEvent(_Channel,Agent,say(W)):- 
+ircEvent(Channel,Agent,say(W)):- 
      catch(read_term_from_atom(W,CMD,[double_quotes(string),variable_names(Vs)]),E,(dmsg(E),fail)),
-     catch(CMD*->true;say(failed(CMD:Vs)),E,((compound(CMD),chan_say(Agent,E),fail))).
+     ircEvent(Channel,Agent,call(CMD,Vs)),!.     
+
+ircEvent(Channel,Agent,call('?-'(CMD),Vs)):- isRegistered(Channel,Agent,execute), !,  
+  with_no_input(while_sending_error(Channel,with_output_channel(Channel,
+    catch(once(call_with_results(CMD,Vs)),E,((say(Channel,E),fail)))))),!.
+
+ircEvent(Channel,Agent,call(CMD,Vs)):- isRegistered(Channel,Agent,executeAll),
+   while_sending_error(Channel,(catch((with_output_channel(Channel,
+     with_no_input((CMD*->true;say(failed(CMD:Vs)))))),E,((compound(CMD),say(Agent,E),fail))))),!.
+
 ircEvent(Channel,Agent,Method):-dmsg(ircEvent(Channel,Agent,Method)).
 
+call_with_results(CMD,[]):-!, CMD *-> write("Yes. ") ; write("No. ").
+call_with_results(CMD,Vs):- 
+  deterministic(SoFar),dmsg(deterministic(SoFar)),
+  call_with_results_1(CMD,Vs).
+
+call_with_results_1(CMD,Vs):- call_with_results_2(CMD,Vs) *-> (deterministic(X),flag(num_sols,N,0),write(deterministic(X,N)),write(' ')) ; write('No. ').
+call_with_results_2(CMD,Vs):- flag(num_sols,_,0),
+      CMD,flag(num_sols,N,N+1),deterministic(Done),once(Done==true -> (writeq(Vs),write('. ')) ; (writeq(Vs),write('; '),N>8)).
+
+with_output_channel(Channel,CMD):-  
+  with_output_to_chars((CMD),Chars),!,
+  % text_to_string(Chars,S),
+  say(Channel,Chars).
+
+with_io(CMD):-
+  current_input(IN),
+  current_output(OUT),
+   call_cleanup(true,CMD,(set_input(IN),set_output(OUT))).
+
+
+with_no_input(CMD):- 
+ open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
+
+
+
+while_sending_error(_Agent,CMD):- !, CMD.
+
+while_sending_error(_Agent,CMD):- 
+  current_input(IN),current_output(OUT),
+    set_prolog_IO(IN,OUT,OUT),!,CMD.
+
+while_sending_error(Agent,CMD):- 
+ new_memory_file(MF),
+ open_memory_file(MF, write, ERR),
+   current_input(IN),current_output(OUT),
+     set_prolog_IO(IN,OUT,ERR),
+      call_cleanup(true, CMD,
+        (flush_output(ERR),close(ERR),
+          	open_memory_file(MF, read, Stream,[ free_on_close(true)]),
+                read_codes_and_send(Stream,Agent),
+                close(Stream))).
+
+
+read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,Codes),at_end_of_stream(IN),!.
 
 %:-servantProcessCreate(killable,'Consultation Mode Test (KIFBOT!) OPN Server',consultation_thread(swipl,3334),Id,[]).
 
-update_changed_files :-
+update_changed_files_eggdrop :-
         set_prolog_flag(verbose_load,true),
         ensure_loaded(library(make)),
 	findall(File, make:modified_file(File), Reload0),
@@ -192,12 +158,70 @@ update_changed_files :-
            true %list_undefined,list_void_declarations
 	).
 
-%from(X,Y,_,Z):-ircEvent(X,Y,Z),!.
-%from(X,Y,Z):-ircEvent(X,Y,Z),!.
-%from(Channel,Agent,Method):-once(catch(once(nani_event_from(Channel,Agent,Method)),_,true)),fail.
-%from(Channel,Agent,say(String)):- catch(learn_response(Channel,Agent,String),_,fail),fail.
+  
+say(Channel,DataI):-sayable_string(DataI,Data),
+	once(stdio(_Agent,_InStream,OutStream);current_output(OutStream)),
+	say(OutStream,Channel,Data).
+
+say(_,NonList,Data):-is_stream(NonList),!,say(NonList,"console",Data),!.
+say(OutStream,NonList,Data):-not(is_list(NonList)),text_to_string(NonList, S),string_codes(S,Codes),!,say(OutStream,Codes,Data).
+say(OutStream,Channel,Data):-atomic(Data),!,
+	concat_atom(List,'\n',Data),
+	say_list(OutStream,Channel,List),!.
+
+say(OutStream,Channel,Data):-
+	say_list(OutStream,Channel,[Data]),!.
+
+say(OutStream,Channel,Data):-dmsg(say(OutStream,Channel,Data)).
+
+say_list(_OutStream,_Channel,[]).
+say_list(OutStream,Channel,[N|L]):-
+	ignore(catch(format(OutStream,'\n.msg ~s ~w\n',[Channel,N]),_,fail)),
+	% ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~w" ;  return "noerror ."\n',[Channel,N]),_,fail)),	
+	flush_output(OutStream),
+	say_list(OutStream,Channel,L),!.
+
+to_egg(X):-to_egg('~w',[X]),!.
+to_egg(X,Y):-once(stdio(_Agent,_InStream,OutStream)),once((sformat(S,X,Y),format(OutStream,'~s\n',[S]),!,flush_output(OutStream))).
+
+:-dynamic(isChattingWith/2).
+:-dynamic(isRegistered/3).
+
+isRegistered(Channel,Agent,kifbot):-isChattingWith(Channel,Agent).
+isRegistered(_,"someluser",execute):-!,fail.
+isRegistered("#ai",_,execute):-ignore(fail).
+isRegistered("#pigface",_,execute):-ignore(fail).  % havent been there since 2001
+isRegistered("#logicmoo",_,execute):-ignore(fail).
+isRegistered("#kif",_,execute):-ignore(fail).
+isRegistered("#rdfig",_,execute):-ignore(fail).
+isRegistered("##prolog",_,execute):-!.
+isRegistered(_,_,execute):-!.
+
+:- thread_local((thlocal:default_channel/1, thlocal:default_user/1)).
+
+sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
+say(D):- thlocal:default_channel(C),!,say(C,D),!.
+say(D):- say("#prologMUD",D),!.
+
+sayable_string(I,S):- any_to_string(I,S).
+
+list_replace(List,Char,Replace,NewList):-
+	append(Left,[Char|Right],List),
+	append(Left,Replace,NewLeft),
+	list_replace(Right,Char,Replace,NewRight),
+	append(NewLeft,NewRight,NewList),!.
+list_replace(List,_Char,_Replace,List):-!.
 
 
-go:- thread_create(consultation_thread(swipl,3334),_,[]).
+my_name_in_text(Codes):-
+	toLowercase(Codes,Lower),!,
+	my_name_in_lcase_codes(Lower).
+	
+my_name_in_lcase_codes(Codes):-
+	append(_,[106, 108, 108|_],Codes).
+my_name_in_lcase_codes(Codes):-
+	append(_,[106,_,108, 108|_],Codes).
 
+
+egg_go:- thread_create(consultation_thread(swipl,3334),_,[]).
 
