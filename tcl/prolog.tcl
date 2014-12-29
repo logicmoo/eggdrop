@@ -33,7 +33,7 @@ proc react-rejn {nick uhost hand channel} {  get2react "rejoin" "[escapeString $
 
 #NEED (stackable) 
 proc react-need {channel which} { 
-    if {which=="op"} { return 1}
+    if {$which=="op"} { return 1}
     get2react "need" "[escapeString $channel],[escapeString $which]" 
 }
 
@@ -107,7 +107,7 @@ bind part - * react-leave
 bind sign - * react-leave
 bind ctcp - * react-ctcp
 bind ctcr - * react-ctcr
-bind fil - * react-fil
+#bind fil - * react-fil
 bind chon - * react-chon
 bind chof - * react-chof
 bind bot - * react-bot
