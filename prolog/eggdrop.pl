@@ -1,4 +1,6 @@
 %:-include('logicmoo_utils_header.pl').
+
+% from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
 :- '@'(ensure_loaded('../../../src_lib/logicmoo_util/logicmoo_util_all'),user).
 /*
 wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
