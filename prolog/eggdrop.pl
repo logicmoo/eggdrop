@@ -117,7 +117,9 @@ ircEvent(Channel,Agent,Method):-wdmsg(ircEvent(Channel,Agent,Method)).
 
 call_in_thread(CMD):- thread_self(Self),thread_create((asserta(put_server_count(0)),call_with_time_limit(10,CMD)),_,[detached(true),inherit_from(Self)]).
 
-:- thread_local vars_as/1.
+:- dynamic vars_as/1.
+% :- thread_local vars_as/1.
+vars_as(comma).
 
 vars_as_list :- retractall(vars_as(_)),asserta(vars_as(list)).
 vars_as_comma :- retractall(vars_as(_)),asserta(vars_as(comma)).
