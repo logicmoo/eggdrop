@@ -107,7 +107,7 @@ ircEvent(Channel,Agent,say(W)):-
      catch(read_term_from_atom(W,CMD,[double_quotes(string),variable_names(Vs)]),E,(wdmsg(E),fail)),
      ircEvent(Channel,Agent,call(CMD,Vs)),!.     
 
-ircEvent(Channel,Agent,call('?-'(CMD),Vs)):- isRegistered(Channel,Agent,execute), !,  
+ircEvent(Channel,Agent,call('?-'(CMD),Vs)):- nonvar(CMD), isRegistered(Channel,Agent,execute), !,  
   with_no_input(while_sending_error(Channel,with_output_channel(Channel,
     catch(once(call_with_results(CMD,Vs)),E,((say(Channel,E),fail)))))),!.
 
