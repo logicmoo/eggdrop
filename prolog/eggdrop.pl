@@ -26,7 +26,17 @@ TODO
 */
 :-dynamic(isChattingWith/2).
 :-dynamic(isRegistered/3).
+:-use_module(library(process)).
+unsafe_preds(M,F,A):-M=files_ex,current_predicate(M:F/A),member(X,[delete,copy]),atom_contains(F,X).
+unsafe_preds(M,F,A):-M=process,current_predicate(M:F/A),member(X,[kill,create]),atom_contains(F,X).
+unsafe_preds(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A).
 
+remove_pred(_,F,A):-member(_:F/A,[_:delete_common_prefix/4]),!.
+remove_pred(M,F,A):- functor(P,F,A),
+  (current_predicate(M:F/A) -> ignore((catch(redefine_system_predicate(M:P),_,true),abolish(M:F,A)));true),
+  M:asserta((P:-throw(permission_error(M:F/A)))).
+
+:-forall(unsafe_preds(M,F,A),remove_pred(M,F,A)).
 
 % [Optionaly] Solve the Halting problem
 :-redefine_system_predicate(system:halt).
@@ -35,6 +45,8 @@ system:halt:- format('the halting problem is now solved!').
 
 bot_nick("PrologMUD").
 ctrl_nick("swipl").
+
+
 
 :-use_module(library(socket)).
 :- dynamic(stdio/3).
@@ -57,7 +69,8 @@ consultation_thread(CtrlNick,Port):-
       % loop
       repeat,
          update_changed_files_eggdrop,
-         catch(read_line_to_codes(IN,Codes),_,Codes=end_of_file),         
+         catch(read_line_to_codes(IN,Codes),_,Codes=end_of_file),    
+         Codes\=end_of_file,
          once(consultation_codes(CtrlNick,Port,Codes)),
          fail.
 
@@ -66,7 +79,8 @@ consultation_codes(_BotNick,_Port,Codes):-
       text_to_string(Codes,String),
       catch(read_term_from_atom(String,CMD,[]),_E,(wdmsg(String),fail)),!,
       wdmsg(CMD),!,
-      catch(CMD,E,wdmsg(E:CMD)).
+      CMD\=end_of_file,callable(CMD),
+      catch(call(CMD),E,wdmsg(E:CMD)).
 
 
 % IRC EVENTS Bubble from here
