@@ -200,14 +200,16 @@ vars_as(comma).
 vars_as_list :- retractall(vars_as(_)),asserta(vars_as(list)).
 vars_as_comma :- retractall(vars_as(_)),asserta(vars_as(comma)).
 
+format_nv(N,V):- format('~w=',[N]),((var(V),var_property(V,name(EN))->write(EN);writeq(V))).
+
 write_varvalues2(Vs):-vars_as(comma),!,write_varcommas2(Vs).
 write_varvalues2(Vs):-write('['),copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varvalues3(CVs).
-write_varvalues3([N=V]):-format('~w=~q]',[N,V]),!.
-write_varvalues3([N=V|Vs]):-format('~w=~q,',[N,V]),write_varvalues3(Vs),!.
+write_varvalues3([N=V]):- format_nv(N,V), write(']'),!.
+write_varvalues3([N=V|Vs]):-format_nv(N,V),write(','),write_varvalues3(Vs),!.
 
 write_varcommas2(Vs):- copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varcommas3(CVs).
-write_varcommas3([N=V]):-format('~w=~q',[N,V]),!.
-write_varcommas3([N=V|Vs]):-format('~w=~q,',[N,V]),write_varcommas3(Vs),!.
+write_varcommas3([N=V]):-format_nv(N,V),!.
+write_varcommas3([N=V|Vs]):-format_nv(N,V), write(','),!,write_varcommas3(Vs),!.
 
 remove_anons([],[]).
 remove_anons([N=_|Vs],VsRA):-atom_concat('_',_,N),!,remove_anons(Vs,VsRA).
@@ -226,7 +228,7 @@ call_with_results_2(CMDIN,Vs):-
  b_setval('$variable_names', Vs),
    with_assertions(toplevel_variables(Vs),call_with_results_3(CMDIN,Vs)).
 
-call_with_results_2(CMDIN,Vs):- flag(num_sols,_,0),
+call_with_results_3(CMDIN,Vs):- flag(num_sols,_,0),
    strip_module(CMDIN,M,CMD),
    functor_h(CMD,F,A),A2 is A+1,
    CMD=..[F|ARGS],atom_concat(F,'_with_vars',FF),
