@@ -1,4 +1,4 @@
-:-module(eggdrop,[egg_go/0,user_call/1]).
+:-module(eggdrop,[egg_go/0,ircEvent/3,call_with_results_3/2]).
 
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
 % supplies with_assertions/2,atom_concats/2, dmsg/1, wdmsg/1, must/1, if_startup_script/0
@@ -47,19 +47,19 @@ isRegistered(_,_,execute):-!.
 % Deregister unsafe preds
 % ===================================================================
 :-use_module(library(process)).
-/*
-unsafe_preds(M,F,A):-M=files_ex,current_predicate(M:F/A),member(X,[delete,copy]),atom_contains(F,X).
-unsafe_preds(M,F,A):-M=process,current_predicate(M:F/A),member(X,[kill,create]),atom_contains(F,X).
-unsafe_preds(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A).
 
-remove_pred(_,F,A):-member(_:F/A,[_:delete_common_prefix/4]),!.
-remove_pred(M,F,A):- functor(P,F,A),
+unsafe_preds_egg(M,F,A):-M=files_ex,current_predicate(M:F/A),member(X,[delete,copy]),atom_contains(F,X).
+unsafe_preds_egg(M,F,A):-M=process,current_predicate(M:F/A),member(X,[kill,create]),atom_contains(F,X).
+unsafe_preds_egg(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A).
+
+:-export(remove_pred_egg/3).
+remove_pred_egg(_,F,A):-member(_:F/A,[_:delete_common_prefix/4]),!.
+remove_pred_egg(M,F,A):- functor(P,F,A),
   (current_predicate(M:F/A) -> ignore((catch(redefine_system_predicate(M:P),_,true),abolish(M:F,A)));true),
   M:asserta((P:-(wdmsg(error(call(P))),throw(permission_error(M:F/A))))).
 
-*/
-deregister_unsafe_preds:-!.
-deregister_unsafe_preds:-forall(unsafe_preds(M,F,A),bugger:remove_pred(M,F,A)).
+
+deregister_unsafe_preds:-forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
 
 
 % [Optionaly] Solve the Halting problem
@@ -67,6 +67,7 @@ deregister_unsafe_preds:-forall(unsafe_preds(M,F,A),bugger:remove_pred(M,F,A)).
 :-abolish(system:halt,0).
 system:halt:- format('the halting problem is now solved!').
 
+:- deregister_unsafe_preds.
 % ===================================================================
 % Eggrop interaction
 % ===================================================================
@@ -94,7 +95,7 @@ consultation_thread(CtrlNick,Port):-
       % loop
       repeat,
          update_changed_files_eggdrop,
-         catch(read_line_to_codes(IN,Codes),_,Codes=end_of_file),    
+         catch(clpfd:read_line_to_codes(IN,Codes),_,Codes=end_of_file),    
          Codes\=end_of_file,
          once(consultation_codes(CtrlNick,Port,Codes)),
          fail.
@@ -106,11 +107,11 @@ is_callable(CMD):- callable(CMD),
           functor(CMD,F,A),
           current_predicate(F/A),!.
 
-:-meta_predicate(module_call(+,0)).
-module_call(M,CMD):-CALL=M:call(CMD), '@'(catch(CALL,E,(wdmsg(E:CALL),throw(E))),M).
-:-meta_predicate(user_call(0)).
-user_call(M:CMD):-!,show_call(module_call(M,CMD)).
-user_call(CMD):-module_call('user',CMD).
+%:-meta_predicate(module_call(+,0)).
+%module_call(M,CMD):- CALL=M:call(CMD), '@'(catch(CALL,E,(wdmsg(E:CALL),throw(E))),M).
+%:-meta_predicate(user_call(0)).
+%user_call(M:CMD):-!,show_call(module_call(M,CMD)).
+%user_call(CMD):-module_call('user',CMD).
 
 consultation_codes(CtrlNick,Port,end_of_file):-!,consultation_thread(CtrlNick,Port).
 consultation_codes(_BotNick,_Port,Codes):-
@@ -118,12 +119,12 @@ consultation_codes(_BotNick,_Port,Codes):-
       catch(read_term_from_atom(String,CMD,[]),_E,(wdmsg(String),!,fail)),!,      
       is_callable(CMD),
       wdmsg(maybe_call(CMD)),!,
-      catch(module_call('eggdrop',CMD),E,wdmsg(E:CMD)).
+      catch(CMD,E,wdmsg(E:CMD)).
 
 
 % IRC EVENTS Bubble from here
 :-export(get2react/1).
-get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),current_predicate(F/A),module_call('eggdrop',CALL).
+get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),current_predicate(F/A),CALL.
 
 % ===================================================================
 % IRC interaction
@@ -171,7 +172,7 @@ ircEvent(Channel,Agent,say(W)):- fail,
 
 % Say -> Call
 ircEvent(Channel,Agent,say(W)):- 
-     catch(read_term_from_atom(W,CMD,[double_quotes(string),variable_names(Vs)]),_,fail),
+     catch(clpfd:read_term_from_atom(W,CMD,[double_quotes(string),variable_names(Vs)]),_,fail),
      ircEvent(Channel,Agent,call(CMD,Vs)),!.     
 
 % ?- Call -> call_with_results
@@ -217,7 +218,7 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 
 call_with_results(CMD,Vs):-remove_anons(Vs,VsRA),!,call_with_results_0(CMD,VsRA).
 
-call_with_results_0(CMD,[]):-!, CMD *-> write(" Yes. ") ; write(" No. ").
+call_with_results_0(CMD,[]):-!, '@'(CMD,user) *-> write(" Yes. ") ; write(" No. ").
 call_with_results_0(CMD,Vs):- call_with_results_1(CMD,Vs).
 
 call_with_results_1(CMD,Vs):- call_with_results_2(CMD,Vs) *-> 
@@ -229,11 +230,12 @@ call_with_results_2(CMDIN,Vs):-
    with_assertions(toplevel_variables(Vs),call_with_results_3(CMDIN,Vs)).
 
 call_with_results_3(CMDIN,Vs):- flag(num_sols,_,0),
-   strip_module(CMDIN,M,CMD),
+   %strip_module(CMDIN,M,CMD),
+   M= user, CMDIN = CMD,
    functor_h(CMD,F,A),A2 is A+1,
    CMD=..[F|ARGS],atom_concat(F,'_with_vars',FF),
    (M:current_predicate(FF/A2)-> (CMDWV=..[FF|ARGS],append_term(CMDWV,Vs,CCMD)); CCMD=CMD),
-   M:CCMD, flag(num_sols,N,N+1), deterministic(Done),once(Done==true -> (once(write_varvalues2(Vs)),write('. ')) ; (once(write_varvalues2(Vs)),write('; '),N>28)).
+   '@'(M:CCMD,M), flag(num_sols,N,N+1), deterministic(Done),once(Done==true -> (once(write_varvalues2(Vs)),write('. ')) ; (once(write_varvalues2(Vs)),write('; '),N>28)).
 
 with_output_channel(Channel,CMD):-  
   with_output_to_chars((CMD),Chars),!,
