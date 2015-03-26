@@ -1,11 +1,11 @@
 :-module(eggdrop,[egg_go/0,ircEvent/3,call_with_results_3/2]).
 
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
-% supplies with_assertions/2,atom_concats/2, dmsg/1, wdmsg/1, must/1, if_startup_script/0
+% supplies with_assertions/2,atom_concats/2, dmsg/1, bugger:wdmsg/1, must/1, if_startup_script/0
 :- '@'(ensure_loaded('../../../src_lib/logicmoo_util/logicmoo_util_all'),user).
 /*
-wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
-wdmsg(CMD):-format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
+bugger:wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
+bugger:wdmsg(CMD):-format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
 */
 /*
 TODO
@@ -48,19 +48,19 @@ isRegistered(_,_,execute):-!.
 % ===================================================================
 :-use_module(library(process)).
 
-unsafe_preds_egg(M,F,A):-M=files_ex,current_predicate(M:F/A),member(X,[delete,copy]),atom_contains(F,X).
-unsafe_preds_egg(M,F,A):-M=process,current_predicate(M:F/A),member(X,[kill,create]),atom_contains(F,X).
+%unsafe_preds_egg(M,F,A):-M=files_ex,current_predicate(M:F/A),member(X,[delete,copy]),atom_contains(F,X).
+%unsafe_preds_egg(M,F,A):-M=process,current_predicate(M:F/A),member(X,[kill,create]),atom_contains(F,X).
 unsafe_preds_egg(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A).
 
-:-export(remove_pred_egg/3).
+:- export(remove_pred_egg/3).
 remove_pred_egg(_,F,A):-member(_:F/A,[_:delete_common_prefix/4]),!.
 remove_pred_egg(M,F,A):- functor(P,F,A),
   (current_predicate(M:F/A) -> ignore((catch(redefine_system_predicate(M:P),_,true),abolish(M:F,A)));true),
-  M:asserta((P:-(wdmsg(error(call(P))),throw(permission_error(M:F/A))))).
+  M:asserta((P:-(bugger:wdmsg(error(call(P))),throw(permission_error(M:F/A))))).
 
-
-deregister_unsafe_preds:-forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
-
+% only if root
+deregister_unsafe_preds:-getuid(0),forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
+deregister_unsafe_preds:-!.
 
 % [Optionaly] Solve the Halting problem
 :-redefine_system_predicate(system:halt).
@@ -108,7 +108,7 @@ is_callable(CMD):- callable(CMD),
           current_predicate(F/A),!.
 
 %:-meta_predicate(module_call(+,0)).
-%module_call(M,CMD):- CALL=M:call(CMD), '@'(catch(CALL,E,(wdmsg(E:CALL),throw(E))),M).
+%module_call(M,CMD):- CALL=M:call(CMD), '@'(catch(CALL,E,(bugger:wdmsg(E:CALL),throw(E))),M).
 %:-meta_predicate(user_call(0)).
 %user_call(M:CMD):-!,show_call(module_call(M,CMD)).
 %user_call(CMD):-module_call('user',CMD).
@@ -116,14 +116,14 @@ is_callable(CMD):- callable(CMD),
 consultation_codes(CtrlNick,Port,end_of_file):-!,consultation_thread(CtrlNick,Port).
 consultation_codes(_BotNick,_Port,Codes):-
       text_to_string(Codes,String),
-      catch(read_term_from_atom(String,CMD,[]),_E,(wdmsg(String),!,fail)),!,      
+      catch(read_term_from_atom(String,CMD,[]),_E,(bugger:wdmsg(String),!,fail)),!,      
       is_callable(CMD),
-      wdmsg(maybe_call(CMD)),!,
-      catch(CMD,E,wdmsg(E:CMD)).
+      bugger:wdmsg(maybe_call(CMD)),!,
+      catch(CMD,E,bugger:wdmsg(E:CMD)).
 
 
 % IRC EVENTS Bubble from here
-:-export(get2react/1).
+:- export(get2react/1).
 get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),current_predicate(F/A),CALL.
 
 % ===================================================================
@@ -131,11 +131,11 @@ get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),current_predicate(F/A)
 % ===================================================================
 :- thread_local((thlocal:default_channel/1, thlocal:default_user/1)).
 % IRC EVENTS FROM CALL
-part(USER, HOSTAMSK,TYPE,DEST,MESSAGE):- wdmsg(notice(part(USER, HOSTAMSK,TYPE,DEST,MESSAGE))).
-join(USER, HOSTAMSK,TYPE,DEST):- wdmsg(notice(join(USER, HOSTAMSK,TYPE,DEST))).
+part(USER, HOSTAMSK,TYPE,DEST,MESSAGE):- bugger:wdmsg(notice(part(USER, HOSTAMSK,TYPE,DEST,MESSAGE))).
+join(USER, HOSTAMSK,TYPE,DEST):- bugger:wdmsg(notice(join(USER, HOSTAMSK,TYPE,DEST))).
 msgm(USER, HOSTAMSK,TYPE,DEST,MESSAGE):-pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE).
 pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE):- 
- wdmsg(pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE)), !,
+ bugger:wdmsg(pubm(USER, HOSTAMSK,TYPE,DEST,MESSAGE)), !,
   call_in_thread((with_assertions(thlocal:default_channel(DEST),
    with_assertions(thlocal:default_user(USER),
      ircEvent(DEST,USER,say(MESSAGE)))))).
@@ -186,7 +186,7 @@ ircEvent(Channel,Agent,call(CMD,Vs)):- isRegistered(Channel,Agent,executeAll),
    while_sending_error(Channel,(catch((with_output_channel(Channel,
      with_no_input((CMD*->true;say(failed(CMD:Vs)))))),E,((compound(CMD),say(Agent,E),fail))))),!.
 
-ircEvent(Channel,Agent,Method):- wdmsg(unused(ircEvent(Channel,Agent,Method))).
+ircEvent(Channel,Agent,Method):- bugger:wdmsg(unused(ircEvent(Channel,Agent,Method))).
 
 
 % ===================================================================
@@ -216,14 +216,16 @@ remove_anons([],[]).
 remove_anons([N=_|Vs],VsRA):-atom_concat('_',_,N),!,remove_anons(Vs,VsRA).
 remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 
-call_with_results(CMD,Vs):-remove_anons(Vs,VsRA),!,call_with_results_0(CMD,VsRA).
+call_with_results(CMDI,Vs):-remove_anons(Vs,VsRA),!,expand_term(CMDI,CMDG),expand_goal(CMDG,CMD),call_with_results_0(CMD,VsRA).
 
 call_with_results_0(CMD,[]):-!, '@'(CMD,user) *-> write(" Yes. ") ; write(" No. ").
 call_with_results_0(CMD,Vs):- call_with_results_1(CMD,Vs).
 
-call_with_results_1(CMD,Vs):- call_with_results_2(CMD,Vs) *-> 
-  (deterministic(X),flag(num_sols,N,0),write(' '),write(det(X,N)),write(' Yes. ')) ;
-     (deterministic(X),flag(num_sols,N,0),write(' '),write(det(X,N)),write(' No. ')).
+call_with_results_1(CMD,Vs):- 
+ (call_with_results_2(CMD,Vs) *-> 
+  (deterministic(X),flag(num_sols,N,0),write(' '),(X=true->write(det('Yes',N));write(nondet('Yes',N)))) ;
+     (deterministic(X),flag(num_sols,N,0),write(' '),(X=true->write(det('No',N));write(nondet('No',N))))).
+
 
 call_with_results_2(CMDIN,Vs):- 
  b_setval('$variable_names', Vs),
@@ -253,7 +255,7 @@ with_no_input(CMD):- !,
 with_no_input(CMD):- 
  open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
 
-ignore_catch(CALL):-ignore(catch(CALL,E,wdmsg(E:CALL))).
+ignore_catch(CALL):-ignore(catch(CALL,E,bugger:wdmsg(E:CALL))).
 
 % while_sending_error(_Agent,CMD):- !, CMD.
 
@@ -262,9 +264,9 @@ while_sending_error(_Agent,CMD):- current_input(IN),current_output(OUT),show_cal
 while_sending_error(Agent,CMD):-  new_memory_file(MF),
  open_memory_file(MF, write, ERR),
    current_input(IN),current_output(OUT),
-   wdmsg(set_prolog_IO(IN,OUT,ERR)),
+   bugger:wdmsg(set_prolog_IO(IN,OUT,ERR)),
      set_prolog_IO(IN,OUT,OUT),     
-     wdmsg(set_prolog_IO_done(IN,OUT,ERR)),
+     bugger:wdmsg(set_prolog_IO_done(IN,OUT,ERR)),
       call_cleanup(true, CMD,
         (ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),
           	open_memory_file(MF, read, Stream,[ free_on_close(true)]),
@@ -272,7 +274,7 @@ while_sending_error(Agent,CMD):-  new_memory_file(MF),
                 ignore_catch(close(Stream)))).
 
 
-read_codes_and_send(IN,Agent):- at_end_of_stream(IN),!,wdmsg(say(Agent,done)).
+read_codes_and_send(IN,Agent):- at_end_of_stream(IN),!,bugger:wdmsg(say(Agent,done)).
 read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,Codes),at_end_of_stream(IN),!.
 
 %:-servantProcessCreate(killable,'Consultation Mode Test (KIFBOT!) OPN Server',consultation_thread(swipl,3334),Id,[]).
@@ -317,7 +319,7 @@ say(OutStream,Channel,Text):-any_to_string(Text,Data),
 say(OutStream,Channel,Data):-
 	say_list(OutStream,Channel,[Data]),!.
 
-say(OutStream,Channel,Data):-wdmsg(say(OutStream,Channel,Data)).
+say(OutStream,Channel,Data):-bugger:wdmsg(say(OutStream,Channel,Data)).
 
 say_list(_OutStream,_Channel,[]).
 say_list(OutStream,Channel,[N|L]):-	
@@ -332,7 +334,7 @@ put_server_count(0).
 
 check_put_server_count(Max):-retract(put_server_count(Was)),Is is Was+1,asserta(put_server_count(Is)),!,Is =< Max.
 % 
-privmsg(OutStream,Channel,Text):-string_codes(Text,Codes),privmsg0(OutStream,Channel,Codes).
+privmsg(OutStream,Channel,Text):- string_codes(Text,Codes),privmsg0(OutStream,Channel,Codes).
 
 privmsg0(OutStream,Channel,Codes):-length(Codes,Len),Len>430,length(LCodes,430),append(LCodes,RCodes,Codes),!,
    privmsg1(OutStream,Channel,LCodes),!,privmsg0(OutStream,Channel,RCodes).
