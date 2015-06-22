@@ -50,7 +50,7 @@ isRegistered(_,_,execute):-!.
 % ===================================================================
 :-use_module(library(process)).
 
-%unsafe_preds_egg(M,F,A):-M=files_ex,current_predicate(M:F/A),member(X,[delete,copy]),atom_contains(F,X).
+unsafe_preds_egg(M,F,A):-M=files_ex,current_predicate(M:F/A),member(X,[delete,copy]),atom_contains(F,X).
 %unsafe_preds_egg(M,F,A):-M=process,current_predicate(M:F/A),member(X,[kill,create]),atom_contains(F,X).
 unsafe_preds_egg(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A).
 
@@ -62,6 +62,7 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 
 % :-use_module(library(uid)).
 % only if root
+deregister_unsafe_preds:-!.
 deregister_unsafe_preds:-if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
 deregister_unsafe_preds:-!.
 
@@ -70,7 +71,7 @@ deregister_unsafe_preds:-!.
 :-abolish(system:halt,0).
 system:halt:- format('the halting problem is now solved!').
 
-:- deregister_unsafe_preds.
+% :- deregister_unsafe_preds.
 % ===================================================================
 % Eggrop interaction
 % ===================================================================
@@ -154,7 +155,7 @@ irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
        thlocal:default_user(USER),
        thlocal:session_id(ID),
        thlocal:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)
-       ],user:call_with_time_limit(30,user:ircEvent(DEST,USER,MESSAGE))))).
+       ],nodebugx(user:call_with_time_limit(30,user:ircEvent(DEST,USER,MESSAGE)))))).
 
 
 
@@ -165,6 +166,7 @@ irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
 
 % convert all to strings
 ignored_source(From):-var(From),!,fail.
+ignored_source("yesbot").
 ignored_source(From):-not(string(From)),!,text_to_string(From,String),!,ignored_source(String).
 %  from bot telnet
 ignored_source(From):- atom_length(From,1).
@@ -194,6 +196,11 @@ ircEvent(Channel,Agent,say(W)):- fail,
 
 ircEvent(Channel,Agent,Event):-doall(call_no_cuts(user:irc_event_hooks(Channel,Agent,Event))),fail.
 
+/*
+ircEvent(Channel,Agent,say(W)):- 
+     catch(clpfd:read_term_from_atom(W,CMD,[double_quotes(string),variable_names(Vs)]),_,fail),
+     ircEvent(Channel,Agent,call(CMD,Vs)),!.     
+*/
 
 % Say -> Call
 ircEvent(Channel,Agent,say(W)):- 
@@ -206,6 +213,12 @@ ircEvent(Channel,Agent,call(CALL,Vs)):- nonvar(CALL),CALL = '?-'(CMD),
   with_no_input(while_sending_error(Channel,with_output_channel(Channel,
     '@'(catch(once(show_call(call_with_results(CMD,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))),!.
 
+
+ircEvent(Channel,Agent,call(CALL,Vs)):- fail, nonvar(CALL),CALL = ':-'(_,_),
+  with_no_input(while_sending_error(Channel,with_output_channel(Channel,
+    '@'(catch(once(show_call(user:add_maybe_static(CALL,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))),!.
+
+
 % Call -> call_with_results
 ircEvent(Channel,Agent,call(CMD,Vs)):- isRegistered(Channel,Agent,executeAll),
    while_sending_error(Channel,(catch((with_output_channel(Channel,
@@ -213,6 +226,10 @@ ircEvent(Channel,Agent,call(CMD,Vs)):- isRegistered(Channel,Agent,executeAll),
 
 ircEvent(Channel,Agent,Method):- bugger:wdmsg(unused(ircEvent(Channel,Agent,Method))).
 
+:-export(add_maybe_static/2).
+add_maybe_static( H,Vs):- H \= (_:-_), !,add_maybe_static((H:-true),Vs).
+add_maybe_static((H:-B),_Vs):- predicate_property(H,dynamic),!,assertz(((H:-B))).
+add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B))),functor(H,F,A),compile_predicates([F/A]))).
 
 % ===================================================================
 % IRC CALL/1
