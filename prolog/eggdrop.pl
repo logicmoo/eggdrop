@@ -2,11 +2,11 @@
 
 :-module_transparent(ircEvent/3).
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
-% supplies with_assertions/2,atom_concats/2, dmsg/1, bugger:wdmsg/1, must/1, if_startup_script/0
+% supplies with_assertions/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
 :- '@'(ensure_loaded(library(logicmoo/util/logicmoo_util_bugger)),user).
 /*
-bugger:wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
-bugger:wdmsg(CMD):-format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
+my_wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
+my_wdmsg(CMD):-format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
 */
 /*
 TODO
@@ -29,6 +29,10 @@ bot_nick("PrologMUD").
 ctrl_nick("swipl").
 ctrl_port(3334).
 
+my_wdmsg(Msg):- string(Msg),format(user_error,'~N~s~N',[Msg]),flush_output(user_error),!.
+my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),if_defined(dmsg(Msg)),!.
+my_wdmsg(Msg):- format(user_error,'~N~w~N',[Msg]),flush_output(user_error),!.
+
 :-dynamic(isChattingWith/2).
 :-dynamic(isRegistered/3).
 :-thread_local thlocal:disable_mpred_term_expansions_locally.
@@ -44,7 +48,7 @@ isRegistered("##prolog",_,execute):-!.
 % all may execture since they are using ?-
 isRegistered(_,_,execute):-!.
 
-
+:- export((egg_go/0,ircEvent/3,call_with_results/2,isRegistered/3)).
 % ===================================================================
 % Deregister unsafe preds
 % ===================================================================
@@ -58,7 +62,7 @@ unsafe_preds_egg(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A
 remove_pred_egg(_,F,A):-member(_:F/A,[_:delete_common_prefix/4]),!.
 remove_pred_egg(M,F,A):- functor(P,F,A),
   (current_predicate(M:F/A) -> ignore((catch(redefine_system_predicate(M:P),_,true),abolish(M:F,A)));true),
-  M:asserta((P:-(bugger:wdmsg(error(call(P))),throw(permission_error(M:F/A))))).
+  M:asserta((P:-(my_wdmsg(error(call(P))),throw(permission_error(M:F/A))))).
 
 % :-use_module(library(uid)).
 % only if root
@@ -88,7 +92,8 @@ eggdropConnect(Host,Port,CtrlNick,Pass):-
        format(OutStream,'~w\n',[Pass]),flush_output(OutStream),
        retractall(stdio(CtrlNick,_,_)),
        asserta((stdio(CtrlNick,IN,OutStream))),!.
-		
+
+:-export(consultation_thread/2).
 consultation_thread(CtrlNick,Port):- 
       eggdropConnect(CtrlNick,Port),
       to_egg('.echo off\n'),
@@ -112,7 +117,7 @@ is_callable_egg(CMD):- callable(CMD),
           current_predicate(F/A),!.
 
 %:-meta_predicate(module_call(+,0)).
-%module_call(M,CMD):- CALL=M:call(CMD), '@'(catch(CALL,E,(bugger:wdmsg(E:CALL),throw(E))),M).
+%module_call(M,CMD):- CALL=M:call(CMD), '@'(catch(CALL,E,(my_wdmsg(E:CALL),throw(E))),M).
 %:-meta_predicate(user_call(0)).
 %user_call(M:CMD):-!,show_call(module_call(M,CMD)).
 %user_call(CMD):-module_call('user',CMD).
@@ -120,10 +125,10 @@ is_callable_egg(CMD):- callable(CMD),
 consultation_codes(CtrlNick,Port,end_of_file):-!,consultation_thread(CtrlNick,Port).
 consultation_codes(_BotNick,_Port,Codes):-
       text_to_string(Codes,String),
-      catch(read_term_from_atom(String,CMD,[]),_E,(bugger:wdmsg(String),!,fail)),!,      
+      catch(read_term_from_atom(String,CMD,[]),_E,(my_wdmsg(String),!,fail)),!,      
       is_callable_egg(CMD),
-      bugger:wdmsg(maybe_call(CMD)),!,
-      catch(CMD,E,bugger:wdmsg(E:CMD)).
+      my_wdmsg(maybe_call(CMD)),!,
+      catch(CMD,E,my_wdmsg(E:CMD)).
 
 
 % IRC EVENTS Bubble from here
@@ -146,16 +151,18 @@ pubm(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,sa
 
 
 irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):- 
- bugger:wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
+ my_wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
    string_to_atom(USER,ID),
-   call_in_thread((
+   call_in_thread((    
      with_assertions([
        thlocal:put_server_count(0),
        thlocal:default_channel(DEST),       
        thlocal:default_user(USER),
-       thlocal:session_id(ID),
-       thlocal:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)
-       ],nodebugx(user:call_with_time_limit(30,user:ircEvent(DEST,USER,MESSAGE)))))).
+       thlocal:session_id(ID),       
+       thlocal:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)],
+       nodebugx(user:call_with_time_limit(30,
+          (eggdrop_bind_user_streams,
+           ircEvent(DEST,USER,MESSAGE))))))).
 
 
 
@@ -174,12 +181,22 @@ ignored_source(From):- atom_length(From,1).
 ignored_source(From):-
  bot_nick(BotNick),ctrl_nick(CtrlNick),arg(_,vv(BotNick,CtrlNick),Ignore),atom_contains(From,Ignore),!.
 
-
+:-dynamic(last_read_from_saved/4).
 :-dynamic(ignored_channel/1).
 :-dynamic(user:irc_event_hooks/3).
 :-multifile(user:irc_event_hooks/3).
 
 user:irc_event_hooks(_Channel,_User,_Stuff):-fail.
+
+
+recordlast(Channel,User,say(What)):-!,retractall(last_read_from_saved(Channel,User,say,_)),asserta(last_read_from_saved(Channel,User,say,What)),!.
+recordlast(Channel,User,What):-functor(What,F,_),retractall(last_read_from_saved(Channel,User,F,_)),asserta(last_read_from_saved(Channel,User,F,What)),!.
+
+% awaiting some inputs
+ircEvent(DEST,User,say(W)):- 
+ term_to_atom(cu(DEST,User),QUEUE),
+   message_queue_property(_, alias(QUEUE)),
+     show_call(thread_send_message(QUEUE,W)).
 
 % ignore some inputs
 ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,!.
@@ -196,35 +213,67 @@ ircEvent(Channel,Agent,say(W)):- fail,
 
 ircEvent(Channel,Agent,Event):-doall(call_no_cuts(user:irc_event_hooks(Channel,Agent,Event))),fail.
 
-/*
-ircEvent(Channel,Agent,say(W)):- 
-     catch(clpfd:read_term_from_atom(W,CMD,[double_quotes(string),variable_names(Vs)]),_,fail),
-     ircEvent(Channel,Agent,call(CMD,Vs)),!.     
-*/
-
 % Say -> Call
 ircEvent(Channel,Agent,say(W)):- 
-     catch(clpfd:read_term_from_atom(W,CMD,[double_quotes(string),variable_names(Vs)]),_,fail),
-     ircEvent(Channel,Agent,call(CMD,Vs)),!.     
-
-% ?- Call -> call_with_results
-ircEvent(Channel,Agent,call(CALL,Vs)):- nonvar(CALL),CALL = '?-'(CMD),
-  show_call_failure(isRegistered(Channel,Agent,execute)), !,  
-  with_no_input(while_sending_error(Channel,with_output_channel(Channel,
-    '@'(catch(once(show_call(call_with_results(CMD,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))),!.
-
-
-ircEvent(Channel,Agent,call(CALL,Vs)):- fail, nonvar(CALL),CALL = ':-'(_,_),
-  with_no_input(while_sending_error(Channel,with_output_channel(Channel,
-    '@'(catch(once(show_call(user:add_maybe_static(CALL,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))),!.
-
+   forall(read_each_term_egg(W,CMD,Vs),ircEvent(Channel,Agent,call(CMD,Vs))).
 
 % Call -> call_with_results
-ircEvent(Channel,Agent,call(CMD,Vs)):- isRegistered(Channel,Agent,executeAll),
-   while_sending_error(Channel,(catch((with_output_channel(Channel,
-     with_no_input((CMD*->true;say(failed(CMD:Vs)))))),E,((compound(CMD),say(Agent,[Channel,': ',CMD,' was ',E]),fail))))),!.
+ircEvent(Channel,Agent,call(CALL,Vs)):- ircEvent_call_filtered(Channel,Agent,CALL,Vs).
 
-ircEvent(Channel,Agent,Method):- bugger:wdmsg(unused(ircEvent(Channel,Agent,Method))).
+ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
+
+
+:-export(unreadable/1).
+unreadable(UR):-my_wdmsg(unreadable(UR)).
+
+:-export(read_each_term_egg/3).
+:-module_transparent(read_each_term_egg/3).
+read_each_term_egg(S,CMD,Vs):-   
+  l_open_input(S,Stream),  
+      findall(CMD-Vs,(
+       repeat,
+       read_one_term_egg(Stream,CMD,Vs),
+       (CMD==end_of_file->!;true)),Results),!,
+  ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)).
+
+:- ensure_loaded(library(logicmoo/plarkc/dbase_i_sexpr_reader)).
+:- ensure_loaded(library(clpfd)).
+
+:- ensure_loaded(logicmoo(util/logicmoo_util_prolog_streams)).
+
+:-export(eggdrop_bind_user_streams/0).
+eggdrop_bind_user_streams :-
+	Err = Out,
+	open_prolog_stream(eggdrop_io, write, Out, []),
+	set_stream(Out, buffer(line)),
+	open_prolog_stream(eggdrop_io, read,  In, []),
+	set_stream(In,  alias(user_input)),
+        set_stream(Out, alias(user_output)),
+        set_stream(Err, alias(user_error)),
+        set_stream(Err, alias(current_error)),
+	set_stream(In,  alias(current_input)),
+        set_stream(Out, alias(current_output)),
+	thread_at_exit(close_io(In, Out)).
+
+eggdrop_io:stream_write(_Stream, Out) :- thlocal:default_channel(RETURN),say(RETURN,Out).
+eggdrop_io:stream_read(_Stream, Data) :- prompt(Prompt, Prompt), pengine_input(_{type:console, prompt:Prompt}, Data).
+eggdrop_io:stream_close(_Stream).
+
+close_io(In, Out) :-
+	close(In, [force(true)]),
+	close(Out, [force(true)]).
+
+
+:-export(read_one_term_egg/3).
+:-module_transparent(read_one_term_egg/3).
+read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
+       with_stream_pos(InStream,show_call_entry(read_one_term_egg(InStream,CMD,Vs))).
+read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
+read_one_term_egg(Stream,CMD,Vs):- catch((logicmoo_i_sexp_reader:input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
+read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[double_quotes(string),module(clpfd),variable_names(Vs)])),_,fail),CMD\==end_of_file,!.
+read_one_term_egg(Stream,unreadable(String),_):-catch((read_stream_to_codes(Stream,Codes),string_codes(String,Codes)),_,fail),!.
+read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream,Codes,[]),string_codes(String,Codes)),_,fail),!.
+
 
 :-export(add_maybe_static/2).
 add_maybe_static( H,Vs):- H \= (_:-_), !,add_maybe_static((H:-true),Vs).
@@ -234,6 +283,33 @@ add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B)
 % ===================================================================
 % IRC CALL/1
 % ===================================================================
+:-module_transparent(ircEvent_call_filtered/4).
+:-export(ircEvent_call_filtered/4).
+ircEvent_call_filtered(_Channel,_Agent,CALL,_Vs):-var(CALL),!.
+ircEvent_call_filtered(_Channel,_Agent,end_of_file,_Vs):-!.
+ircEvent_call_filtered(_Channel,_Agent,(H :- B ),Vs):- user:add_maybe_static((H :- B),Vs),!.
+ircEvent_call_filtered(Channel,Agent,((=>(H)) :- B ),Vs):- ((=>(H :- B)) \== ((=>(H)) :- B )),!,ircEvent_call_filtered(Channel,Agent,(=>(H :- B)),Vs).
+ircEvent_call_filtered(Channel,Agent,'?-'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
+ircEvent_call_filtered(Channel,Agent,'=>'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,pfc_add(CALL),Vs),!.
+ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_call_functor(S),!,
+   (current_predicate(lisp_call/3) -> ircEvent_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
+     my_wdmsg(cant_ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs))).
+ircEvent_call_filtered(Channel,Agent,CALL,Vs):- isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
+ircEvent_call_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!. 
+
+is_lisp_call_functor('?-').
+is_lisp_call_functor('?>').
+
+
+:-module_transparent(ircEvent_call/4).
+:-export(ircEvent_call/4).
+ircEvent_call(Channel,Agent,CALL,Vs):-
+  my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
+  with_no_input(while_sending_error(Channel,with_output_channel(Channel,
+    '@'(catch(once(show_call(call_with_results(CALL,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))),!.
+
+
+call_in_thread(CMD):- thread_self(main),!,CMD.
 call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
 
 :- dynamic vars_as/1.
@@ -245,6 +321,7 @@ vars_as_comma :- retractall(vars_as(_)),asserta(vars_as(comma)).
 
 format_nv(N,V):- format('~w=',[N]),((var(V),var_property(V,name(EN))->write(EN);writeq(V))).
 
+:-export(write_varvalues2/1).
 write_varvalues2(Vs):-vars_as(comma),!,write_varcommas2(Vs).
 write_varvalues2(Vs):-write('['),copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varvalues3(CVs).
 write_varvalues3([N=V]):- format_nv(N,V), write(']'),!.
@@ -272,24 +349,29 @@ call_with_results_0(CMD,Vs):-
   (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
      (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'),write(' '),(X=true->write(det(YN,N));write(nondet(YN,N))))).
 
-
+:-module_transparent(call_with_results_2/2).
+:-export(call_with_results_2/2).
 call_with_results_2(CMDIN,Vs):-  
    CMDIN = CMD,functor_h(CMD,F,A),A2 is A+1,CMD=..[F|ARGS],atom_concat(F,'_with_vars',FF),
    (current_predicate(FF/A2)-> (CMDWV=..[FF|ARGS],append_term(CMDWV,Vs,CCMD)); CCMD=CMD),!,
    call_with_results_3(CCMD,Vs).
 call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 
-
+:-module_transparent(call_with_results_3/2).
+:-export(call_with_results_3/2).
 call_with_results_3(CCMD,Vs):-
    show_call(CCMD), flag(num_sols,N,N+1), deterministic(Done),
      (once((Done==true -> (once(write_varvalues2(Vs)),write('. ')) ; (once(write_varvalues2(Vs)),write('; '),N>28)))).
 
-% with_output_channel(Channel,CMD):-!, with_output_to_pred_direct(read_line_to_string, say(Channel),CMD).\
 :-export(with_output_channel/2).
 :-module_transparent(with_output_channel(+,0)).
 with_output_channel(Channel,CMD):- 
-  with_output_to_chars((CMD),Chars),!,  % text_to_string(Chars,S),
-  say(Channel,Chars).
+  with_output_to_pred(say(Channel),CMD).
+
+with_input_channel_user(_,_,CMD):- !, with_no_input(CMD).
+with_input_channel_user(Channel,User,CMD):- 
+  with_input_from_pred(last_read_from(Channel,User),CMD).
+
 
 with_io(CMD):-
   current_input(IN),
@@ -303,7 +385,7 @@ with_no_input(CMD):- !,
 with_no_input(CMD):- 
  open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
 
-ignore_catch(CALL):-ignore(catch(CALL,E,bugger:wdmsg(E:CALL))).
+ignore_catch(CALL):-ignore(catch(CALL,E,my_wdmsg(E:CALL))).
 
 while_sending_error(_Agent,CMD):- !, CMD.
 
@@ -315,9 +397,9 @@ while_sending_error(Agent,CMD):-while_sending_error(Agent,[],CMD).
 while_sending_error(Agent,_PREFIX,CMD):-  new_memory_file(MF),
  open_memory_file(MF, write, ERR),
    current_input(IN),current_output(OUT),
-   bugger:wdmsg(set_prolog_IO(IN,OUT,ERR)),
+   my_wdmsg(set_prolog_IO(IN,OUT,ERR)),
      set_prolog_IO(IN,OUT,OUT),     
-     bugger:wdmsg(set_prolog_IO_done(IN,OUT,ERR)),!,
+     my_wdmsg(set_prolog_IO_done(IN,OUT,ERR)),!,
       call_cleanup(true, CMD,
         (ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),
           	open_memory_file(MF, read, Stream,[ free_on_close(true)]),
@@ -325,7 +407,7 @@ while_sending_error(Agent,_PREFIX,CMD):-  new_memory_file(MF),
                 ignore_catch(close(Stream)))).
 */
 
-read_codes_and_send(IN,Agent):- at_end_of_stream(IN),!,bugger:wdmsg(say(Agent,done)).
+read_codes_and_send(IN,Agent):- at_end_of_stream(IN),!,my_wdmsg(say(Agent,done)).
 read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,Codes),at_end_of_stream(IN),!.
 
 %:-servantProcessCreate(killable,'Consultation Mode Test (KIFBOT!) OPN Server',consultation_thread(swipl,3334),Id,[]).
@@ -364,50 +446,55 @@ say(Channel,Data):-
 	say(OutStream,Channel,Data),!.
 
 say(_,NonList,Data):-is_stream(NonList),!,say(NonList,"console",Data),!.
-say(OutStream,NonList,Data):-not(is_list(NonList)),text_to_string(NonList, S),string_codes(S,Codes),!,say(OutStream,Codes,Data),!.
-  
 
-say(OutStream,Channel,Text):-any_to_string(Text,Data),
+% say(_OutStream,Channel,Text):-my_wdmsg(say(Channel,Text)),fail.
+say(OutStream,NonList,Data):-not(is_list(NonList)),text_to_string(NonList, S),string_codes(S,Codes),!,say(OutStream,Codes,Data),!.
+say(OutStream,Channel,Text):-
+   any_to_string(Text,Data),
 	concat_atom(List,'\n',Data),
 	say_list(OutStream,Channel,List),!.
 
 say(OutStream,Channel,Data):-
 	say_list(OutStream,Channel,[Data]),!.
 
-say(OutStream,Channel,Data):-bugger:wdmsg(say(OutStream,Channel,Data)),!.
+say(OutStream,Channel,Data):-my_wdmsg(say(OutStream,Channel,Data)),!.
 
 get_session_prefix(ID):-thlocal:session_id(ID),!.
 get_session_prefix(ID):-thlocal:default_user(ID),!.
 get_session_prefix('').
 
+% say_list(_OutStream,Channel,Text):-my_wdmsg(say_list(Channel,Text)),fail.
 say_list(OutStream,Channel,List):-
   get_session_prefix(Prefix),!,
   say_list(OutStream,Channel,Prefix,List),!.
 
 is_empty(A):-any_to_string(A,S),string_length(S,0).
 
+flushed_privmsg(OutStream,Channel,Fmt,Args):- 
+  format(string(NS),Fmt,Args),
+  privmsg(OutStream,Channel,NS),!,
+  catch(flush_output(OutStream),_,true).
+
 say_list(OutStream,Channel:Prefix,_ID,List):-nonvar(Channel),!,say_list(OutStream,Channel,Prefix,List).
 say_list(_OutStream,_Channel,_Prefix,[]).
-say_list(OutStream,Channel,Prefix,[N|L]):- any_to_string(Prefix,S),any_to_string(Channel,S),!,
-        format(string(NS),'~w',[N]),
-	privmsg(OutStream,Channel,NS),!,
-        flush_output(OutStream),
-	say_list(OutStream,Channel,Prefix,L),!.
 
+say_list(OutStream,Channel,Prefix,[S|L]):- atom_string(N,S),atom_concat('\t',Front,N),atom_concat('   ',Front,NEW),!,say_list(OutStream,Channel,Prefix,[NEW|L]).
+
+say_list(OutStream,Channel,Prefix,[N|L]):- any_to_string(Prefix,S),any_to_string(Channel,S),!,
+        flushed_privmsg(OutStream,Channel,'~w',[N]),        
+	say_list(OutStream,Channel,Prefix,L),!.
 say_list(OutStream,Channel,Prefix,[N|L]):-!,
-        format(string(NS),'~w: ~w',[Prefix,N]),
-	privmsg(OutStream,Channel,NS),!,
-        flush_output(OutStream),
+   flushed_privmsg(OutStream,Channel,'~w: ~w',[Prefix,N]),
 	say_list(OutStream,Channel,Prefix,L),!.
 
 :-thread_local thlocal:put_server_count/1.
 :-multifile thlocal:put_server_count/1.
-:-thread_local put_server_no_max/0.
-:-multifile put_server_no_max/0.
+:-thread_local thlocal:put_server_no_max/0.
+:-multifile thlocal:put_server_no_max/0.
 
 thlocal:put_server_count(0).
 
-check_put_server_count(0):- if_defined(put_server_no_max),retractall(thlocal:put_server_count(_)),asserta(thlocal:put_server_count(0)).
+check_put_server_count(0):- if_defined(thlocal:put_server_no_max),retractall(thlocal:put_server_count(_)),asserta(thlocal:put_server_count(0)).
 check_put_server_count(Max):-retract(thlocal:put_server_count(Was)),Is is Was+1,asserta(thlocal:put_server_count(Is)),!,Is =< Max.
 % 
 privmsg(OutStream,Channel,Text):- string_codes(Text,Codes),privmsg0(OutStream,Channel,Codes).
@@ -441,7 +528,8 @@ escape_quotes(LIST,ISO):-
 		%string_to_list(IS,LIST),!,
 		list_replace_egg(LIST,92,[92,92],LISTM),
 		list_replace_egg(LISTM,34,[92,34],LISTM2),
-                list_replace_egg(LISTM2,91,[92,91],LISTO),
+                list_replace_egg(LISTM2,91,[92,91],LIST3),
+                list_replace_egg(LIST3,36,[92,36],LISTO),
                 =(LISTO,ISO),!.
 		% text_to_string(LISTO,ISO),!.
 
@@ -457,18 +545,26 @@ list_replace_egg(List,_Char,_Replace,List):-!.
 % Startup
 % ===================================================================
 
-show_thread_exit:- bugger:wdmsg(warn(eggdrop_show_thread_exit)).
+show_thread_exit:- my_wdmsg(warn(eggdrop_show_thread_exit)).
+
+egg_go_fg:-consultation_thread(swipl,3334).
 
 egg_go:- 
  deregister_unsafe_preds,
  (thread_property(_,alias(egg_go)) -> 
          true; 
-         thread_create(consultation_thread(swipl,3334),_,[alias(egg_go),detached(true),an_exit(show_thread_exit)])).
+         thread_create(egg_go_fg,_,[alias(egg_go),detached(true),an_exit(show_thread_exit)])).
 
+/*
 :- source_location(S,_),forall(source_file(H,S),ignore(( ( \+predicate_property(H,PP),member(PP,[(multifile),built_in]) ),  
  functor(H,F,A),module_transparent(F/A),export(F/A),user:import(H)))).
+*/
 
   
 % :-asserta(user:irc_user_plays(_,dmiles,dmiles)).
 
 :- if_startup_script -> egg_go ; true.
+
+
+:- ircEvent("dmiles_afk","dmiles_afk",say("(?- (a b c))")).
+
