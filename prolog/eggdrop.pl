@@ -137,7 +137,7 @@ is_callable_egg(CMD):- callable(CMD),
 %:-meta_predicate(module_call(+,0)).
 %module_call(M,CMD):- CALL=M:call(CMD), '@'(catch(CALL,E,(my_wdmsg(E:CALL),throw(E))),M).
 %:-meta_predicate(user_call(0)).
-%user_call(M:CMD):-!,dcall(module_call(M,CMD)).
+%user_call(M:CMD):-!,show_call(module_call(M,CMD)).
 %user_call(CMD):-module_call('user',CMD).
 
 consultation_codes(CtrlNick,Port,end_of_file):-!,consultation_thread(CtrlNick,Port).
@@ -151,7 +151,7 @@ consultation_codes(_BotNick,_Port,Codes):-
 
 % IRC EVENTS Bubble from here
 :- export(get2react/1).
-get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),dcall_failure((current_predicate(F/A),CALL)).
+get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),show_failure((current_predicate(F/A),CALL)).
 
 :-thread_local(thlocal:session_id/1).
 :-multifile(thlocal:session_id/1).
@@ -217,7 +217,7 @@ recordlast(Channel,User,What):-functor(What,F,_),retractall(last_read_from_saved
 ircEvent(DEST,User,say(W)):- 
  term_to_atom(cu(DEST,User),QUEUE),
    message_queue_property(_, alias(QUEUE)),
-     dcall(ircEvent,thread_send_message(QUEUE,W)).
+     show_call(ircEvent,thread_send_message(QUEUE,W)).
 
 % ignore some inputs
 ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,!.
@@ -252,7 +252,7 @@ unreadable(UR):-my_wdmsg(unreadable(UR)).
 :-export(read_each_term_egg/3).
 :-module_transparent(read_each_term_egg/3).
 read_each_term_egg(S,CMD,Vs):-   
-  dcall_failure(( l_open_input(S,Stream),  
+  show_failure(( l_open_input(S,Stream),  
       findall(CMD-Vs,(
        repeat,
        read_one_term_egg(Stream,CMD,Vs),
@@ -316,7 +316,7 @@ close_ioe(In, Out, Err) :-
 :-export(read_one_term_egg/3).
 :-module_transparent(read_one_term_egg/3).
 read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
-       with_stream_pos(InStream,dcall_entry(read_one_term_egg(InStream,CMD,Vs))).
+       with_stream_pos(InStream,show_entry(read_one_term_egg(InStream,CMD,Vs))).
 read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
 read_one_term_egg(Stream,CMD,Vs):- catch((logicmoo_i_sexp_reader:input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
 read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[double_quotes(string),module(clpfd),variable_names(Vs)])),_,fail),CMD\==end_of_file,!.
@@ -354,8 +354,8 @@ is_lisp_call_functor('?>').
 :-export(ircEvent_call/4).
 ircEvent_call(Channel,Agent,CALL,Vs):-
   my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
-  dcall_failure((with_no_input(while_sending_error(Channel,with_output_channel(Channel,
-    '@'(catch(once(dcall(call_with_results(CALL,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))))),!.
+  show_failure((with_no_input(while_sending_error(Channel,with_output_channel(Channel,
+    '@'(catch(once(show_call(call_with_results(CALL,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))))),!.
 
 
 % call_in_thread(CMD):- !,CMD.
@@ -399,7 +399,7 @@ call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
  w_tl(thlocal:disable_mpred_term_expansions_locally, 
   expand_term(CMDI,CMDG)),
    expand_goal(CMDG,CMD),
-    dcall(call_with_results_0(CMD,VsRA)).
+    show_call(call_with_results_0(CMD,VsRA)).
 
 :-module_transparent(call_with_results_0/2).
 :-export(call_with_results_0/2).
@@ -423,7 +423,7 @@ call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 :-module_transparent(call_with_results_3/2).
 :-export(call_with_results_3/2).
 call_with_results_3(CCMD,Vs):-
-   dcall(CCMD), flag(num_sols,N,N+1), deterministic(Done),
+   show_call(CCMD), flag(num_sols,N,N+1), deterministic(Done),
      (once((Done==true -> (once(write_varvalues2(Vs)),write('. ')) ; (once(write_varvalues2(Vs)),write('; '),N>28)))).
 
 :-export(with_output_channel/2).
@@ -454,7 +454,7 @@ ignore_catch(CALL):-ignore(catch(CALL,E,my_wdmsg(E:CALL))).
 
 while_sending_error(_Agent,CMD):- !, CMD.
 
-while_sending_error(Agent,CMD):- % current_input(IN),current_output(OUT),dcall( set_prolog_IO(IN,OUT,OUT)),!,
+while_sending_error(Agent,CMD):- % current_input(IN),current_output(OUT),show_call( set_prolog_IO(IN,OUT,OUT)),!,
   with_output_to_pred(say(Agent),CMD).
 /*
 while_sending_error(Agent:PREFIX,CMD):-!,while_sending_error(Agent,PREFIX,CMD).
