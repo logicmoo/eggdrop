@@ -17,7 +17,7 @@ Such as the IRC chatroom ##prolog to let people test their basic code
  ==
 ````
 
- There is another very important IRC bot called yesbot' and that bot was designed to be more useable.
+ There is another very important IRC bot called yesbot (https://github.com/eazar001/yesbot) and that bot was designed to be more useable. 
 
 Using this pack after it is installed...
 
