@@ -1,5 +1,5 @@
 
----+ Eggdrop IRC/client
+# Eggdrop IRC/client
 
 This pack provides library(eggdrop), which allows prolog code to use an existing IRC Client called Eggdrop.
 
@@ -9,13 +9,15 @@ Sorry this is not very user friendly but I use it in 3 places so I had to packif
 
 Such as the IRC chatroom ##prolog to let people test their basic code
 
+ ````
  ==
 [11:01] <dmiles_afk> ?- predicate_property(with_resource_limit(Call),imported_from(W)).
 [11:01] <PrologMUD> dmiles_afk: Call=_, W=eggdrop.
 [11:01] <PrologMUD> dmiles_afk: det(Yes,1)
  ==
+````
 
- Thee is another very important IRC bot called yesbot' and that bot was designed to be more useable.
+ There is another very important IRC bot called yesbot' and that bot was designed to be more useable.
 
 Using this pack after it is installed...
 
@@ -23,6 +25,7 @@ Using this pack after it is installed...
 
  You must set up an Eggdrop (HOW TO: Setup up Eggdrop IRC bot easily http://forum.ircspeed.info/showthread.php?tid=73 or http://ubuntuforums.org/showthread.php?t=1028042 )
 
+````
  ==
 root@gitlab:~# apt-get install eggdrop
 
@@ -39,7 +42,7 @@ Do you want to continue? [Y/n] y
 ...
 Processing triggers for menu (2.1.46ubuntu1) ...
  ==
-
+````
 2) Configure 
 
  Select a user to run the eggdrop (here I used 'dmiles') and 
@@ -47,6 +50,8 @@ Processing triggers for menu (2.1.46ubuntu1) ...
  Edit the lib/swipl/pack/eggdrop/prolog/eggdrop.pl file (Like if you changes the port number)
 
 3) Run..
+
+````
  ==
 
 dmiles@gitlab:~$ cd lib/swipl/pack/eggdrop
@@ -89,8 +94,10 @@ PrologMUD  (Eggdrop v1.6.19+SSL (C) 1997 Robey Pointer (C) 2008 Eggheads)
 
 Please enter your nickname.
 (If you are new, enter 'NEW' here.)
-==
+  ==
+````  
 Type NEW and when it asks for a username you would use: swipl 
+````
 ==
 NEW
 This is the telnet interface to PrologMUD, an eggdrop bot.
@@ -111,7 +118,9 @@ Enjoy !!
 Okay, now choose and enter a password:
 (Only the first 15 letters are significant.)
 ==
-Make a password for the prolog client
+````
+Make a password for the prolog client like: top5ecret
+````
 ==
 top5ecret
 
@@ -152,7 +161,9 @@ get2react(['chon',"swipl","12"]).
 *** swipl joined the party line.
 
  ==
+ ````
 Type: .quit 
+````
  ==
 .quit
 get2react(['chof',"swipl","12"]).
@@ -162,10 +173,11 @@ get2react(['chof',"swipl","12"]).
 Connection closed by foreign host.
 dmiles@gitlab:~/lib/swipl/pack/eggdrop/conf$
 
-
+````
  ==
 Type: .quit Run Swi-Prolog
  ==
+````
 Welcome to SWI-Prolog (Multi-threaded, 64 bits, Version 7.3.10)
 Copyright (c) 1990-2015 University of Amsterdam, VU Amsterdam
 SWI-Prolog comes with ABSOLUTELY NO WARRANTY. This is free software,
@@ -185,8 +197,8 @@ true.
 ?- % PrologMUD  (Eggdrop v1.6.19+SSL (C) 1997 Robey Pointer (C) 2008 Eggheads)
 % Please enter your nickname.
 % (If you are new, enter 'NEW' here.)
-% Enter your password.ÿû
-% ÿü
+% Enter your password.Ã¿Ã»
+% Ã¿Ã¼
 % Connected to PrologMUD, running eggdrop v1.6.19+SSL
 %      ____                __
 %     / __/___ _ ___ _ ___/ /____ ___   ___
