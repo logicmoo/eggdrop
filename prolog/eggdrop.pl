@@ -1,11 +1,23 @@
 :-module(eggdrop,[egg_go/0,ircEvent/3,call_with_results/2,close_ioe/3,
-         while_sending_error/2,egg_go_fg/0,
+         with_error_channel/2,egg_go_fg/0,
          ignore_catch/1,
          call_in_thread/1,
          with_no_input/1,
          with_output_channel/2,
+         with_error_channel/2,
          with_input_channel_user/3,
+         say_prefixed/3,
+         say/1,
    isRegistered/3]).
+
+% ===================================================================
+% IRC CONFIG
+% ===================================================================
+bot_nick("PrologMUD").
+ctrl_server(localhost).
+ctrl_nick("swipl").
+ctrl_pass("top5ecret").
+ctrl_port(3334).
 
 
  :- meta_predicate call_with_results_3(0,*).
@@ -14,10 +26,10 @@
 
 % :- use_module(library(logicmoo/util/logicmoo_util_prolog_streams),[with_output_to_stream_pred/4]).
 
-:-module_transparent(ircEvent/3).
+:- module_transparent(ircEvent/3).
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
 % supplies w_tl/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
-:- ensure_loaded(library(logicmoo/logicmoo_utils)).
+:- ensure_loaded(library(logicmoo_utils)).
 :- use_module(logicmoo(util/logicmoo_util_strings)).
 /*
 my_wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
@@ -38,12 +50,6 @@ TODO
 
 */
 
-% ===================================================================
-% IRC CONFIG
-% ===================================================================
-bot_nick("PrologMUD").
-ctrl_nick("swipl").
-ctrl_port(3334).
 
 my_wdmsg(Msg):- string(Msg),format(user_error,'~N% ~s~N',[Msg]),flush_output(user_error),!.
 my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((notrace((current_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
@@ -100,9 +106,13 @@ system:halt:- format('the halting problem is now solved!').
 :- use_module(library(socket)).
 :- volatile(egg:stdio/3).
 :- dynamic(egg:stdio/3).
-eggdropConnect:- ctrl_nick(SWIPL),ctrl_port(PORT),eggdropConnect(SWIPL,PORT).
-eggdropConnect(CtrlNick,Port):-eggdropConnect('10.10.10.198',Port,CtrlNick,logicmoo).
+eggdropConnect:- eggdropConnect(_Host,_Port,_CtrlNick,_Pass).
+eggdropConnect(CtrlNick,Port):-eggdropConnect(_Host,Port,CtrlNick,_Pass).
 eggdropConnect(Host,Port,CtrlNick,Pass):-
+       ignore(cntrl_server(Host)),
+       ignore(ctrl_port(Port)),
+       ignore(ctrl_nick(CtrlNick)),
+       ignore(ctrl_pass(Pass)),   
        tcp_socket(SocketId),
        tcp_connect(SocketId,Host:Port),
        tcp_open_socket(SocketId, IN, OutStream),
@@ -171,19 +181,19 @@ pubm(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,sa
 irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):- 
  my_wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
    string_to_atom(USER,ID),
-   call_in_thread((    
+   call_in_thread((      
      w_tl([
        thlocal:put_server_count(0),
        thlocal:default_channel(DEST),       
        thlocal:default_user(USER),
        thlocal:session_id(ID),       
        thlocal:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)],
-        with_resource_limit( (eggdrop_bind_user_streams,
-           ircEvent(DEST,USER,MESSAGE)))))).
+        with_resource_limit((eggdrop_bind_user_streams, ircEvent(DEST,USER,MESSAGE)))))).
        
 with_resource_limit(Call):- thread_self(main),!,rtrace((guitracer,trace,Call)).
-with_resource_limit(Call):- !,Call.
-with_resource_limit(Call):- nodebugx(call_with_time_limit(30,Call)).
+% with_resource_limit(Call):- nodebugx(call_with_time_limit(30,Call)).
+with_resource_limit(Goal):- show_call(eggdrop,nodebugx(resource_bounded_call(Goal, 2.0, _Status, []))).
+
 
 % ===================================================================
 % IRC EVENTS
@@ -239,7 +249,8 @@ ircEvent(Channel,Agent,say(W)):-
    forall(eggdrop:read_each_term_egg(W,CMD,Vs),ircEvent(Channel,Agent,call(CMD,Vs))).
 
 % Call -> call_with_results
-ircEvent(Channel,Agent,call(CALL,Vs)):- ircEvent_call_filtered(Channel,Agent,CALL,Vs).
+ircEvent(Channel,Agent,call(CALL,Vs)):- 
+  ircEvent_call_filtered(Channel,Agent,CALL,Vs).
 
 ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
 
@@ -260,12 +271,14 @@ read_each_term_egg(S,CMD,Vs):-
   ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)))).
 
 %:- ensure_loaded(library(logicmoo/snark/common_logic_sexpr)).
-%:- ensure_loaded(library(clpfd)).
+:- ensure_loaded(library(clpfd)).
 
 
 
 
 :-export(eggdrop_bind_user_streams/0).
+
+eggdrop_bind_user_streams :- thread_self(main),!.
 eggdrop_bind_user_streams :-
   user:((	
 	user:open_prolog_stream(eggdrop_io, write, Out, []),
@@ -286,12 +299,13 @@ eggdrop_bind_user_streams :-
 
 :- use_module(library(pengines)).
 
-:- meta_predicate while_sending_error(?,0).
+
+:- meta_predicate with_error_channel(+,0).
 :- meta_predicate ignore_catch(0).
 :- meta_predicate call_in_thread(0).
 :- meta_predicate with_no_input(0).
-:- meta_predicate with_output_channel(?,0).
-:- meta_predicate with_input_channel_user(?,?,0).
+:- meta_predicate with_output_channel(+,0).
+:- meta_predicate with_input_channel_user(+,+,0).
 
 
 
@@ -318,7 +332,7 @@ close_ioe(In, Out, Err) :-
 read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
        with_stream_pos(InStream,show_entry(read_one_term_egg(InStream,CMD,Vs))).
 read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
-read_one_term_egg(Stream,CMD,Vs):- catch((logicmoo_i_sexp_reader:input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
+% read_one_term_egg(Stream,CMD,Vs):- catch((input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
 read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[double_quotes(string),module(clpfd),variable_names(Vs)])),_,fail),CMD\==end_of_file,!.
 read_one_term_egg(Stream,unreadable(String),_):-catch((read_stream_to_codes(Stream,Codes),string_codes(String,Codes)),_,fail),!.
 read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream,Codes,[]),string_codes(String,Codes)),_,fail),!.
@@ -352,14 +366,26 @@ is_lisp_call_functor('?>').
 
 :-module_transparent(ircEvent_call/4).
 :-export(ircEvent_call/4).
-ircEvent_call(Channel,Agent,CALL,Vs):-
-  my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
-  show_failure((with_no_input(while_sending_error(Channel,with_output_channel(Channel,
-    '@'(catch(once(show_call(call_with_results(CALL,Vs))),E,((say(Channel,[Agent,': ',E]),fail))),user)))))),!.
+ircEvent_call(Channel,Agent,CALL,Vs):-  
+ my_wdmsg(cdo_ircEvent_call(Channel,Agent,CALL,Vs)),
+ call_cleanup(call_with_results(CALL,Vs),flush_output).
+
+ircEvent_call(Channel,Agent,CALL,Vs):-  fail,
+ my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
+  % debug(_),
+  % gtrace,  
+  with_output_channel(Channel,
+     with_error_channel(Channel,
+       with_no_input(catch(call_with_results(CALL,Vs),E,((wdmsg(say(Channel,[Agent,': ',E])),fail)))))),!.
+
+cit:- get_time(HH), call_in_thread(with_error_channel(dmiles_afk:err,writeln(user_error,HH))).
+cit2:- get_time(HH), rtrace(with_error_channel(dmiles_afk:err,writeln(user_error,HH))).
+cit3:- get_time(HH), writeln(user_error,HH).
 
 
-% call_in_thread(CMD):- !,CMD.
+
 call_in_thread(CMD):- thread_self(main),!,CMD.
+call_in_thread(CMD):- !,CMD.
 call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
 
 
@@ -367,7 +393,8 @@ call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inhe
 % :- thread_local egg:vars_as/1.
 egg:vars_as(comma).
 
-
+:-export(flush_all_output/0).
+flush_all_output:- flush_output(user_error),flush_output.
 
 :-export(vars_as_list/0).
 vars_as_list :- retractall(egg:vars_as(_)),asserta(egg:vars_as(list)).
@@ -381,6 +408,7 @@ write_varvalues2(Vs):-egg:vars_as(comma),!,write_varcommas2(Vs).
 write_varvalues2(Vs):-write('['),copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varvalues3(CVs).
 write_varvalues3([N=V]):- format_nv(N,V), write(']'),!.
 write_varvalues3([N=V|Vs]):-format_nv(N,V),write(','),write_varvalues3(Vs),!.
+
 
 write_varcommas2(Vs):- copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varcommas3(CVs).
 write_varcommas3([N=V]):-format_nv(N,V),!.
@@ -423,11 +451,13 @@ call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 :-module_transparent(call_with_results_3/2).
 :-export(call_with_results_3/2).
 call_with_results_3(CCMD,Vs):-
-   show_call(CCMD), flag(num_sols,N,N+1), deterministic(Done),
+  
+   show_call((CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
      (once((Done==true -> (once(write_varvalues2(Vs)),write('. ')) ; (once(write_varvalues2(Vs)),write('; '),N>28)))).
 
 :-export(with_output_channel/2).
 :-module_transparent(with_output_channel(+,0)).
+% with_output_channel(Channel,CMD):- CMD.
 with_output_channel(Channel,CMD):- 
   with_output_to_pred(say(Channel),CMD).
 
@@ -439,38 +469,37 @@ with_input_channel_user(Channel,User,CMD):-
 :-export(with_io/1).
 :-meta_predicate(with_io(0)).
 with_io(CMD):-
-  current_input(IN),
-  current_output(OUT),
-  set_prolog_IO(IN,OUT,OUT),
-   call_cleanup(true,CMD,(set_input(IN),set_output(OUT))).
+  current_input(IN),current_output(OUT),thread_current_error_stream(Err),  
+  call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_error_stream(Err))).
 
-with_no_input(CMD):-  !,CMD.
-with_no_input(CMD):-  open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,CMD.
-with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
+%with_no_input(CMD):-  current_input(Prev), open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,call_cleanup(CMD,set_input(Prev)).
+% with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
+with_no_input(CMD):- CMD.
 
 
 
 ignore_catch(CALL):-ignore(catch(CALL,E,my_wdmsg(E:CALL))).
 
-while_sending_error(_Agent,CMD):- !, CMD.
 
-while_sending_error(Agent,CMD):- % current_input(IN),current_output(OUT),show_call( set_prolog_IO(IN,OUT,OUT)),!,
-  with_output_to_pred(say(Agent),CMD).
-/*
-while_sending_error(Agent:PREFIX,CMD):-!,while_sending_error(Agent,PREFIX,CMD).
-while_sending_error(Agent,CMD):-while_sending_error(Agent,[],CMD).
-while_sending_error(Agent,_PREFIX,CMD):-  new_memory_file(MF),
- open_memory_file(MF, write, ERR),
-   current_input(IN),current_output(OUT),
-   my_wdmsg(set_prolog_IO(IN,OUT,ERR)),
-     set_prolog_IO(IN,OUT,OUT),     
-     my_wdmsg(set_prolog_IO_done(IN,OUT,ERR)),!,
-      call_cleanup(true, CMD,
-        (ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),
-          	open_memory_file(MF, read, Stream,[ free_on_close(true)]),
-                ignore_catch(read_codes_and_send(Stream,Agent)),
-                ignore_catch(close(Stream)))).
-*/
+:- meta_predicate with_error_to_output(0).
+with_error_to_output(CMD):- 
+   current_input(IN),current_output(OUT),!,
+   with_io((set_prolog_IO(IN,OUT,OUT), CMD)).
+
+:- export(with_error_channel/2).
+:- module_transparent(with_error_channel/2).
+
+with_error_channel(Agent,CMD):- %  fail,
+   current_input(IN),current_output(OUT), %current_main_error_stream(MAINERROR), set_prolog_IO(IN,OUT,MAINERROR),
+   new_memory_file(MF),open_memory_file(MF, write, ERR), set_prolog_IO(IN,OUT,ERR),!,
+   setup_call_cleanup(true, CMD,(ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),read_from_agent_and_send(Agent,MF))).
+with_error_channel(Agent, CMD):- !,  with_err_to_pred(say(Agent),CMD).
+with_error_channel(_Agent, CMD):-  !, CMD.
+with_error_channel(_Agent,CMD):- !, with_error_to_output(CMD).
+
+          	
+
+read_from_agent_and_send(Agent,MF):- open_memory_file(MF, read, Stream,[ free_on_close(true)]),ignore_catch(read_codes_and_send(Stream,Agent)),ignore_catch(close(Stream)).
 
 read_codes_and_send(IN,Agent):- at_end_of_stream(IN),!,my_wdmsg(say(Agent,done)).
 read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,Codes),at_end_of_stream(IN),!.
@@ -506,8 +535,15 @@ sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
 say(D):- thlocal:default_channel(C),say(C,D),!.
 say(D):- say("#logicmoo",D),!.
 
+say_prefixed(Agent,Agent,Out):- say(Agent,Out),!.
+say_prefixed(Agent,Prefix,Out):-sformat(SF,'~p',[Out]), say(Agent:Prefix,SF),!.
+say_prefixed(Agent,Prefix,Out):-sformat(SF,'~w: ~p',[Prefix,Out]), say(Agent,SF),!.
+
 :- export(say/2).
+
 say(Channel,[Channel,': '|Data]):-nonvar(Data),say(Channel,Data),!.
+%say(C:C,Text):-nonvar(C),!,say(C,Text).
+%say(C:A,Text):-!,say_prefixed(C,A,Text).
 say(Channel,Data):-
 	once(egg:stdio(_Agent,_InStream,OutStream);current_output(OutStream)),
 	say(OutStream,Channel,Data),!.
@@ -515,7 +551,7 @@ say(Channel,Data):-
 :-export(say/3).
 say(_,NonList,Data):-is_stream(NonList),!,say(NonList,"console",Data),!.
 
-say(_OutStream,Channel,Text):-my_wdmsg(will_say(Channel,Text)),fail.
+%say(_OutStream,Channel,Text):- my_wdmsg(will_say(Channel,Text)),fail.
 say(OutStream,NonList,Data):- \+(is_list(NonList)),text_to_string_safe(NonList, S),string_codes(S,Codes),!,say(OutStream,Codes,Data),!.
 say(OutStream,Channel,Text):-
    any_to_string(Text,Data),
