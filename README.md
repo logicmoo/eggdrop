@@ -9,13 +9,14 @@ Sorry this is not very user friendly but I use it in 3 places so I had to packif
 
 Such as the IRC chatroom ##prolog to let people test their basic code
 
- ````
- ==
+```
+
 [11:01] <dmiles_afk> ?- predicate_property(with_resource_limit(Call),imported_from(W)).
 [11:01] <PrologMUD> dmiles_afk: Call=_, W=eggdrop.
 [11:01] <PrologMUD> dmiles_afk: det(Yes,1)
- ==
-````
+
+```
+
 
  There is another very important IRC bot called yesbot (https://github.com/eazar001/yesbot) and that bot was designed to be more useable. 
 
@@ -25,8 +26,8 @@ Using this pack after it is installed...
 
  You must set up an Eggdrop (HOW TO: Setup up Eggdrop IRC bot easily http://forum.ircspeed.info/showthread.php?tid=73 or http://ubuntuforums.org/showthread.php?t=1028042 )
 
-````
- ==
+```
+
 root@gitlab:~# apt-get install eggdrop
 
 The following extra packages will be installed:
@@ -39,10 +40,10 @@ The following NEW packages will be installed:
 Need to get 1,543 kB of archives.
 After this operation, 5,711 kB of additional disk space will be used.
 Do you want to continue? [Y/n] y
-...
+
 Processing triggers for menu (2.1.46ubuntu1) ...
- ==
-````
+
+```
 2) Configure 
 
  Select a user to run the eggdrop (here I used 'dmiles') and 
@@ -51,8 +52,10 @@ Processing triggers for menu (2.1.46ubuntu1) ...
 
 3) Run..
 
-````
- ==
+```
+
+
+ 
 
 dmiles@gitlab:~$ cd lib/swipl/pack/eggdrop
 dmiles@gitlab:~/lib/swipl/pack/eggdrop$ eggdrop -m eggdrop.conf
@@ -81,7 +84,7 @@ Telnet to the bot and enter 'NEW' as your nickname.
 OR go to IRC and type:  /msg PrologMUD hello
 This will make the bot recognize you as the master.
 
-[09:20] === PrologMUD: 0 channels, 0 users.
+[09:20]  PrologMUD: 0 channels, 0 users.
 Launched into the background  (pid: 27302)
 
 dmiles@gitlab:~/lib/swipl/pack/eggdrop$ telnet localhost 3334
@@ -94,11 +97,13 @@ PrologMUD  (Eggdrop v1.6.19+SSL (C) 1997 Robey Pointer (C) 2008 Eggheads)
 
 Please enter your nickname.
 (If you are new, enter 'NEW' here.)
-  ==
-````  
+
+
+```  
 Type NEW and when it asks for a username you would use: swipl 
-````
-==
+```
+
+
 NEW
 This is the telnet interface to PrologMUD, an eggdrop bot.
 Don't abuse it, and it will be open for all your friends, too.
@@ -117,11 +122,11 @@ From now on, you don't need to use the -m option to start the bot.
 Enjoy !!
 Okay, now choose and enter a password:
 (Only the first 15 letters are significant.)
-==
-````
+
+```
 Make a password for the prolog client like: top5ecret
-````
-==
+```
+
 top5ecret
 
 Remember that!  You'll need it next time you log in.
@@ -160,11 +165,11 @@ get2react(['chon',"swipl","12"]).
 
 *** swipl joined the party line.
 
- ==
- ````
+
+```
 Type: .quit 
-````
- ==
+```
+
 .quit
 get2react(['chof',"swipl","12"]).
 *** Ja mata!
@@ -173,11 +178,11 @@ get2react(['chof',"swipl","12"]).
 Connection closed by foreign host.
 dmiles@gitlab:~/lib/swipl/pack/eggdrop/conf$
 
-````
- ==
+```
+
 Type: .quit Run Swi-Prolog
- ==
-````
+
+```
 Welcome to SWI-Prolog (Multi-threaded, 64 bits, Version 7.3.10)
 Copyright (c) 1990-2015 University of Amsterdam, VU Amsterdam
 SWI-Prolog comes with ABSOLUTELY NO WARRANTY. This is free software,
@@ -230,8 +235,8 @@ true.
 % egg_go running     0.007       29,024
 true.
 
-  ==
-  ```
+
+```
 
 
  # Hopefully not *too much* goes wrong if tried.
