@@ -12,7 +12,7 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   with_output_channel/2,with_resource_limit/1,egg:stdio/3,egg:vars_as/1,ignored_channel/1,isChattingWith/2,isRegistered/3,last_read_from/3,
   last_read_from_saved/4
   % eggdrop_e:stream_close/1,eggdrop_e:stream_read/2,eggdrop_e:stream_write/2,eggdrop_io:stream_close/1,eggdrop_io:stream_read/2,
-  % eggdrop_io:stream_write/2,thlocal:put_server_count/1,thlocal:put_server_no_max/0,thlocal:session_id/1
+  % eggdrop_io:stream_write/2,t_l:put_server_count/1,t_l:put_server_no_max/0,t_l:session_id/1
   ]).
  :- meta_predicate 
         call_in_thread(0),
@@ -41,8 +41,9 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
          say/1,
    isRegistered/3]).*/
 
+:- autoload.
 /*
-:- (multifile thlocal:put_server_count/1, thlocal:put_server_no_max/0, thlocal:session_id/1, user:irc_event_hooks/3).
+:- (multifile t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1, user:irc_event_hooks/3).
 :- module_transparent ((add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,call_with_results_0/2,call_with_results_2/2,call_with_results_3/2,
   check_put_server_count/1,cit/0,cit2/0,cit3/0,close_ioe/3,consultation_codes/3,consultation_thread/2,ctcp/6,
   ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,egg_go_fg/0,eggdropConnect/0,
@@ -55,13 +56,13 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   unsafe_preds_egg/3,update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,
   with_no_input/1,with_output_channel/2,with_resource_limit/1,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1,ignored_channel/1,
   isChattingWith/2,isRegistered/3,last_read_from/3,last_read_from_saved/4  )).
-:- (thread_local thlocal:put_server_count/1, thlocal:put_server_no_max/0, thlocal:session_id/1).
+:- (thread_local t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1).
 :- export((call_with_results_2/2,call_with_results_3/2,cit2/0,cit3/0,privmsg0/3,privmsg1/3,
   privmsg2/3,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1 ,call_with_results_0/2,call_with_results_2/2,call_with_results_3/2,
   cit2/0,cit3/0,privmsg0/3,privmsg1/3,privmsg2/3,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1 )).
 :- dynamic (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,isChattingWith/2,isRegistered/3,last_read_from/3,last_read_from_saved/4,user:irc_event_hooks/3  )).
 :- multifile (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,isChattingWith/2,isRegistered/3,last_read_from/3,last_read_from_saved/4,user:irc_event_hooks/3  )).
-:- (volatile egg:stdio/3, thlocal:put_server_count/1, thlocal:put_server_no_max/0, thlocal:session_id/1).
+:- (volatile egg:stdio/3, t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1).
 */
 
 % ===================================================================
@@ -160,7 +161,7 @@ my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
 
 :-dynamic(isChattingWith/2).
 :-dynamic(isRegistered/3).
-:-thread_local thlocal:disable_mpred_term_expansions_locally.
+:-thread_local t_l:disable_mpred_term_expansions_locally.
 
 
 %= 	 	 
@@ -352,13 +353,13 @@ consultation_codes(_BotNick,_Port,Codes):-
 %
 get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),show_failure((current_predicate(F/A),CALL)).
 
-:-thread_local(thlocal:session_id/1).
-:-multifile(thlocal:session_id/1).
+:-thread_local(t_l:session_id/1).
+:-multifile(t_l:session_id/1).
 
 % ===================================================================
 % IRC interaction
 % ===================================================================
-:- thread_local((thlocal:default_channel/1, thlocal:default_user/1, thlocal:current_irc_receive/5 )).
+:- thread_local((t_l:default_channel/1, t_l:default_user/1, t_l:current_irc_receive/5 )).
 % IRC EVENTS FROM CALL
 
 %= 	 	 
@@ -414,11 +415,11 @@ irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
    string_to_atom(USER,ID),
    call_in_thread((      
      w_tl([
-       thlocal:put_server_count(0),
-       thlocal:default_channel(DEST),       
-       thlocal:default_user(USER),
-       thlocal:session_id(ID),       
-       thlocal:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)],
+       t_l:put_server_count(0),
+       t_l:default_channel(DEST),       
+       t_l:default_user(USER),
+       t_l:session_id(ID),       
+       t_l:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)],
         with_resource_limit((eggdrop_bind_user_streams, ircEvent(DEST,USER,MESSAGE)))))).
        
 
@@ -605,7 +606,7 @@ eggdrop_bind_user_streams :-
 % Hook To [eggdrop_e:stream_write/2] For Module Eggdrop.
 % Stream Write.
 %
-eggdrop_io:stream_write(_Stream, Out) :- thlocal:default_channel(RETURN),say(RETURN,Out).
+eggdrop_io:stream_write(_Stream, Out) :- t_l:default_channel(RETURN),say(RETURN,Out).
 
 %= 	 	 
 
@@ -626,7 +627,7 @@ eggdrop_io:stream_read(_Stream, Data) :- prompt(Prompt, Prompt), pengines:pengin
 %
 eggdrop_io:stream_close(_Stream).
 
-eggdrop_e:stream_write(_Stream, Out) :- thlocal:default_channel(RETURN),say(RETURN,Out).
+eggdrop_e:stream_write(_Stream, Out) :- t_l:default_channel(RETURN),say(RETURN,Out).
 eggdrop_e:stream_read(_Stream, "") :- !.
 eggdrop_e:stream_read(_Stream, Data) :- prompt(Prompt, Prompt), pengines:pengine_input(_{type:console, prompt:Prompt}, Data).
 eggdrop_e:stream_close(_Stream).
@@ -767,7 +768,8 @@ cit3:- get_time(HH), writeln(user_error,HH).
 % Call In Thread.
 %
 call_in_thread(CMD):- thread_self(main),!,CMD.
-call_in_thread(CMD):- !,CMD.
+% call_in_thread(CMD):- !,CMD.
+call_in_thread(CMD):- thread_create(CMD,_,[detached(true)]).
 call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
 
 
@@ -884,7 +886,7 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 % Call Using Results.
 %
 call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
- w_tl(thlocal:disable_mpred_term_expansions_locally, 
+ w_tl(t_l:disable_px, 
   expand_term(CMDI,CMDG)),
    expand_goal(CMDG,CMD),
     show_call(call_with_results_0(CMD,VsRA)).
@@ -1098,7 +1100,7 @@ sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
 %
 % Say.
 %
-say(D):- thlocal:default_channel(C),say(C,D),!.
+say(D):- t_l:default_channel(C),say(C,D),!.
 say(D):- say("#logicmoo",D),!.
 
 
@@ -1157,8 +1159,8 @@ say(OutStream,Channel,Data):-my_wdmsg(say(OutStream,Channel,Data)),!.
 %
 % Get Session Prefix.
 %
-get_session_prefix(ID):-thlocal:session_id(ID),!.
-get_session_prefix(ID):-thlocal:default_user(ID),!.
+get_session_prefix(ID):-t_l:session_id(ID),!.
+get_session_prefix(ID):-t_l:default_user(ID),!.
 get_session_prefix('').
 
 % say_list(_OutStream,Channel,Text):-my_wdmsg(say_list(Channel,Text)),fail.
@@ -1218,20 +1220,20 @@ say_list(OutStream,Channel,Prefix,[N|L]):-!,
    flushed_privmsg(OutStream,Channel,'~w: ~w',[Prefix,N]),
 	say_list(OutStream,Channel,Prefix,L),!.
 
-:-thread_local thlocal:put_server_count/1.
-:-multifile thlocal:put_server_count/1.
-:-thread_local thlocal:put_server_no_max/0.
-:-multifile thlocal:put_server_no_max/0.
+:-thread_local t_l:put_server_count/1.
+:-multifile t_l:put_server_count/1.
+:-thread_local t_l:put_server_no_max/0.
+:-multifile t_l:put_server_no_max/0.
 
 
 %= 	 	 
 
 %% put_server_count( :GoalGOAL1) is semidet.
 %
-% Hook To [thlocal:put_server_count/1] For Module Eggdrop.
+% Hook To [t_l:put_server_count/1] For Module Eggdrop.
 % Put Server Count.
 %
-thlocal:put_server_count(0).
+t_l:put_server_count(0).
 
 
 %= 	 	 
@@ -1240,8 +1242,8 @@ thlocal:put_server_count(0).
 %
 % Check Put Server Count.
 %
-check_put_server_count(0):- if_defined(thlocal:put_server_no_max),retractall(thlocal:put_server_count(_)),asserta(thlocal:put_server_count(0)).
-check_put_server_count(Max):-retract(thlocal:put_server_count(Was)),Is is Was+1,asserta(thlocal:put_server_count(Is)),!,Is =< Max.
+check_put_server_count(0):- if_defined(t_l:put_server_no_max),retractall(t_l:put_server_count(_)),asserta(t_l:put_server_count(0)).
+check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,asserta(t_l:put_server_count(Is)),!,Is =< Max.
 % 
 
 %= 	 	 
@@ -1305,7 +1307,7 @@ putnotice(OutStream,Channel,Text):-escape_quotes(Text,N),ignore(catch(format(Out
 %
 % Privmsg Session.
 %
-privmsg_session(OutStream,Channel,Text):- thlocal:session_id(ID),(ID==Channel->privmsg2(OutStream,Channel,Text);privmsg2(OutStream,ID,Text)).
+privmsg_session(OutStream,Channel,Text):- t_l:session_id(ID),(ID==Channel->privmsg2(OutStream,Channel,Text);privmsg2(OutStream,ID,Text)).
 
 
 
@@ -1405,7 +1407,91 @@ egg_go:-
 
 % :- if_startup_script -> egg_go ; true.
 
-:- source_location(S,_),forall(source_file(H,S),(functor(H,F,A),export(F/A),module_transparent(F/A))).
+
+
+:- module_transparent((egg_go)/0).
+:- module_transparent((egg_go_fg)/0).
+:- module_transparent((show_thread_exit)/0).
+:- module_transparent((list_replace_egg)/4).
+:- module_transparent((escape_quotes)/2).
+:- module_transparent((to_egg)/2).
+:- module_transparent((to_egg)/1).
+:- module_transparent((privmsg_session)/3).
+:- module_transparent((putnotice)/3).
+:- module_transparent((privmsg2)/3).
+:- module_transparent((privmsg1)/3).
+:- module_transparent((privmsg0)/3).
+:- module_transparent((privmsg)/3).
+:- module_transparent((check_put_server_count)/1).
+:- module_transparent((say_list)/4).
+:- module_transparent((flushed_privmsg)/4).
+:- module_transparent((is_empty)/1).
+:- module_transparent((say_list)/3).
+:- module_transparent((get_session_prefix)/1).
+:- module_transparent((say)/3).
+:- module_transparent((say)/2).
+:- module_transparent((say_prefixed)/3).
+:- module_transparent((say)/1).
+:- module_transparent((sayq)/1).
+:- module_transparent((update_changed_files_eggdrop)/0).
+:- module_transparent((read_codes_and_send)/2).
+:- module_transparent((read_from_agent_and_send)/2).
+:- module_transparent((remove_anons)/2).
+:- module_transparent((write_varcommas3)/1).
+:- module_transparent((write_varcommas2)/1).
+:- module_transparent((write_varvalues3)/1).
+:- module_transparent((write_varvalues2)/1).
+:- module_transparent((format_nv)/2).
+:- module_transparent((vars_as_comma)/0).
+:- module_transparent((vars_as_list)/0).
+:- module_transparent((flush_all_output)/0).
+:- module_transparent((cit3)/0).
+:- module_transparent((cit2)/0).
+:- module_transparent((cit)/0).
+:- module_transparent((is_lisp_call_functor)/1).
+:- module_transparent((add_maybe_static)/2).
+:- module_transparent((close_ioe)/3).
+:- module_transparent((eggdrop_bind_user_streams)/0).
+:- module_transparent((unreadable)/1).
+:- module_transparent((recordlast)/3).
+:- module_transparent((ignored_channel)/1).
+:- module_transparent((last_read_from_saved)/4).
+:- module_transparent((ignored_source)/1).
+:- module_transparent((last_read_from)/3).
+:- module_transparent((irc_receive)/5).
+:- module_transparent((pubm)/5).
+:- module_transparent((ctcp)/6).
+:- module_transparent((msgm)/5).
+:- module_transparent((join)/4).
+:- module_transparent((part)/5).
+:- module_transparent((get2react)/1).
+:- module_transparent((consultation_codes)/3).
+:- module_transparent((is_callable_egg)/1).
+:- module_transparent((consultation_thread)/2).
+:- module_transparent((eggdropConnect)/4).
+:- module_transparent((eggdropConnect)/2).
+:- module_transparent((eggdropConnect)/0).
+:- module_transparent((deregister_unsafe_preds)/0).
+:- module_transparent((remove_pred_egg)/3).
+:- module_transparent((unsafe_preds_egg)/3).
+:- module_transparent((isRegistered)/3).
+:- module_transparent((isChattingWith)/2).
+:- module_transparent((my_wdmsg)/1).
+:- module_transparent((ctrl_port)/1).
+:- module_transparent((ctrl_pass)/1).
+:- module_transparent((ctrl_nick)/1).
+:- module_transparent((ctrl_server)/1).
+:- module_transparent((bot_nick)/1).
+
+:- source_location(S,_),prolog_load_context(module,M),
+ forall(source_file(M:H,S),ignore((functor(H,F,A),
+   \+ mpred_database_term(F/A,_),
+   F\=='$mode',
+   F\=='$pldoc',
+   ignore(((\+ atom_concat('$',_,F),\+ mpred_database_term(F/A,_),export(F/A)))),
+   \+ predicate_property(M:H,transparent),
+   ignore(((\+ atom_concat('__aux',_,F),format('~N:- module_transparent((~q)/~q).~n',[F,A])))),
+   M:module_transparent(M:F/A)))).
 
 % :- ircEvent("dmiles_afk","dmiles_afk",say("(?- (a b c))")).
 
