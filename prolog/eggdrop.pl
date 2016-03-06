@@ -721,17 +721,27 @@ is_lisp_call_functor('?>').
 %
 % Irc Event Call.
 %
-ircEvent_call(Channel,Agent,CALL,Vs):-  
+ircEvent_call(Channel,Agent,CALL,Vs):-  fail,
  my_wdmsg(cdo_ircEvent_call(Channel,Agent,CALL,Vs)),
  call_cleanup(call_with_results(CALL,Vs),flush_output).
 
-ircEvent_call(Channel,Agent,CALL,Vs):-  fail,
+ircEvent_call(Channel,Agent,CALL,Vs):-  
  my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
   % debug(_),
   % gtrace,  
   with_output_channel(Channel,
      with_error_channel(Channel,
-       with_no_input(catch(call_with_results(CALL,Vs),E,((wdmsg(say(Channel,[Agent,': ',E])),fail)))))),!.
+       ((stream_property(X,alias(current_output)),set_stream(X,alias(user_output))),
+         with_no_input(catch(call_with_results(CALL,Vs),E,(((say(Agent,[Channel,': ',E])),fail))))))),!.
+
+ircEvent_call(Channel,Agent,CALL,Vs):-  
+ my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
+  % debug(_),
+  % gtrace,  
+  with_output_channel(Channel,
+     with_error_channel(Channel,
+       ((stream_property(X,alias(current_output)),set_stream(X,alias(user_output))),
+         with_no_input(catch(call_with_results(CALL,Vs),E,(((say(Agent,[Channel,': ',E])),fail))))))),!.
 
 
 %= 	 	 
@@ -821,7 +831,11 @@ vars_as_comma :- retractall(egg:vars_as(_)),asserta(egg:vars_as(comma)).
 %
 % Format Nv.
 %
-format_nv(N,V):- format('~w=',[N]),((var(V),var_property(V,name(EN))->write(EN);writeq(V))).
+format_nv(N,V):- format('~w=',[N]),write_v(V).
+
+write_v(V):- attvar(V),attvar_to_dict(V,Dict),writeq(Dict),!.
+write_v(V):- var(V),(var_property(V,name(EN))->write(EN);writeq(V)),!.
+write_v(V):- writeq(V).
 
 :-export(write_varvalues2/1).
 
@@ -1021,11 +1035,17 @@ with_error_to_output(CMD):-
 %
 % Using Error Channel.
 %
+/*
 with_error_channel(_Agent, CMD):-  !, CMD.
-with_error_channel(Agent,CMD):- %  fail,
-   current_input(IN),current_output(OUT), %current_main_error_stream(MAINERROR), set_prolog_IO(IN,OUT,MAINERROR),
-   new_memory_file(MF),open_memory_file(MF, write, ERR), set_prolog_IO(IN,OUT,ERR),!,
-   setup_call_cleanup(true, CMD,(ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),read_from_agent_and_send(Agent,MF))).
+with_error_channel(Agent,CMD):- fail,
+   current_input(IN),current_output(OUT),
+   current_main_error_stream(MAINERROR),
+   set_prolog_IO(IN,OUT,MAINERROR),
+   new_memory_file(MF),
+   open_memory_file(MF, write, ERR), 
+   set_prolog_IO(IN,OUT,ERR),!,
+   setup_call_cleanup_each(CMD,(ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),read_from_agent_and_send(Agent,MF))).
+*/
 with_error_channel(Agent, CMD):- !,  with_err_to_pred(say(Agent),CMD).
 with_error_channel(_Agent, CMD):-  !, CMD.
 with_error_channel(_Agent,CMD):- !, with_error_to_output(CMD).
@@ -1210,7 +1230,7 @@ say_list(_OutStream,_Channel,_Prefix,[]).
 
 say_list(_OutStream,_Channel,_Prefix,['']):- !.
 say_list(OutStream,Channel,Prefix,[S,'']):-!, say_list(OutStream,Channel,Prefix,[S]).
-say_list(OutStream,Channel,Prefix,[S|L]):- wdmsg(say_list(OutStream,Channel,Prefix,[S|L])),fail.
+% say_list(OutStream,Channel,Prefix,[S|L]):- wdmsg(say_list(OutStream,Channel,Prefix,[S|L])),fail.
 say_list(OutStream,Channel,Prefix,[S|L]):- atom_string(N,S),atom_concat('\t',Front,N),atom_concat('   ',Front,NEW),!,say_list(OutStream,Channel,Prefix,[NEW|L]).
 
 say_list(OutStream,Channel,Prefix,[N|L]):- any_to_string(Prefix,S),any_to_string(Channel,S),!,
