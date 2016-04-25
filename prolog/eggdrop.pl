@@ -9,11 +9,14 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   read_one_term_egg/3,recordlast/3,remove_anons/2,remove_pred_egg/3,say/1,say/2,say/3,say_list/3,
   say_list/4,say_prefixed/3,sayq/1,show_thread_exit/0,to_egg/1,to_egg/2,unreadable/1,unsafe_preds_egg/3,
   update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,with_no_input/1,
-  with_output_channel/2,with_resource_limit/1,egg:stdio/3,egg:vars_as/1,ignored_channel/1,isChattingWith/2,isRegistered/3,last_read_from/3,
-  last_read_from_saved/4
+  with_output_channel/2,with_resource_limit/1,egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,
+  chat_config:chat_isChannelUserAct/4,
+  format_nv/2
   % eggdrop_e:stream_close/1,eggdrop_e:stream_read/2,eggdrop_e:stream_write/2,eggdrop_io:stream_close/1,eggdrop_io:stream_read/2,
   % eggdrop_io:stream_write/2,t_l:put_server_count/1,t_l:put_server_no_max/0,t_l:session_id/1
   ]).
+:- '$set_source_module'(eggdrop).
+
  :- meta_predicate 
         call_in_thread(0),
         call_with_results_0(0, ?),
@@ -39,7 +42,7 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
          with_input_channel_user/3,
          say_prefixed/3,
          say/1,
-   isRegistered/3]).*/
+   chat_config:chat_isRegistered/3]).*/
 
 :- autoload.
 /*
@@ -54,14 +57,16 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   read_from_agent_and_send/2,read_one_term_egg/3,recordlast/3,remove_anons/2,remove_pred_egg/3,say/1,say/2,say/3,
   say_list/3,say_list/4,say_prefixed/3,sayq/1,show_thread_exit/0,to_egg/1,to_egg/2,unreadable/1,
   unsafe_preds_egg/3,update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,
-  with_no_input/1,with_output_channel/2,with_resource_limit/1,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1,ignored_channel/1,
-  isChattingWith/2,isRegistered/3,last_read_from/3,last_read_from_saved/4  )).
-:- (thread_local t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1).
+  with_no_input/1,with_output_channel/2,with_resource_limit/1,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1,ignored_channel/1)).
+
+
+
+:- thread_local t_l: put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1.
 :- export((call_with_results_2/2,call_with_results_3/2,cit2/0,cit3/0,privmsg0/3,privmsg1/3,
   privmsg2/3,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1 ,call_with_results_0/2,call_with_results_2/2,call_with_results_3/2,
   cit2/0,cit3/0,privmsg0/3,privmsg1/3,privmsg2/3,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1 )).
-:- dynamic (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,isChattingWith/2,isRegistered/3,last_read_from/3,last_read_from_saved/4,user:irc_event_hooks/3  )).
-:- multifile (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,isChattingWith/2,isRegistered/3,last_read_from/3,last_read_from_saved/4,user:irc_event_hooks/3  )).
+:- dynamic (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,chat_config:chat_isChannelUserAct/4,user:irc_event_hooks/3  )).
+:- multifile (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,chat_config:chat_isChannelUserAct/4,user:irc_event_hooks/3  )).
 :- (volatile egg:stdio/3, t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1).
 */
 
@@ -159,29 +164,29 @@ my_wdmsg(Msg):- string(Msg),format(user_error,'~N% ~s~N',[Msg]),flush_output(use
 my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((notrace((current_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
 my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
 
-:-dynamic(isChattingWith/2).
-:-dynamic(isRegistered/3).
-:-thread_local t_l:disable_mpred_term_expansions_locally.
+:-dynamic(chat_config:chat_isWith/2).
+:-dynamic(chat_config:chat_isRegistered/3).
+:- thread_local(t_l:(disable_px)).
 
 
 %= 	 	 
 
-%% isRegistered( ?Channel, ?Agent, ?Execute3) is semidet.
+%% chat_config:chat_isRegistered( ?Channel, ?Agent, ?Execute3) is semidet.
 %
 % If Is A Registered.
 %
-isRegistered(Channel,Agent,kifbot):-isChattingWith(Channel,Agent).
-isRegistered(_,"someluser",execute):-!,fail.
-isRegistered("#ai",_,execute):-ignore(fail).
-isRegistered("#pigface",_,execute):-ignore(fail).  % havent been there since 2001
-isRegistered("#logicmoo",_,execute):-ignore(fail).
-isRegistered("#kif",_,execute):-ignore(fail).
-isRegistered("#rdfig",_,execute):-ignore(fail).
-isRegistered("##prolog",_,execute):-!.
+chat_config:chat_isRegistered(Channel,Agent,kifbot):-chat_config:chat_isWith(Channel,Agent).
+chat_config:chat_isRegistered(_,"someluser",execute):-!,fail.
+chat_config:chat_isRegistered("#ai",_,execute):-ignore(fail).
+chat_config:chat_isRegistered("#pigface",_,execute):-ignore(fail).  % havent been there since 2001
+chat_config:chat_isRegistered("#logicmoo",_,execute):-ignore(fail).
+chat_config:chat_isRegistered("#kif",_,execute):-ignore(fail).
+chat_config:chat_isRegistered("#rdfig",_,execute):-ignore(fail).
+chat_config:chat_isRegistered("##prolog",_,execute):-!.
 % all may execture since they are using ?-
-isRegistered(_,_,execute):-!.
+chat_config:chat_isRegistered(_,_,execute):-!.
 
-:- export((egg_go/0,ircEvent/3,call_with_results/2,isRegistered/3)).
+:- export((egg_go/0,ircEvent/3,call_with_results/2,chat_config:chat_isRegistered/3)).
 % ===================================================================
 % Deregister unsafe preds
 % ===================================================================
@@ -353,13 +358,12 @@ consultation_codes(_BotNick,_Port,Codes):-
 %
 get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),show_failure((current_predicate(F/A),CALL)).
 
-:-thread_local(t_l:session_id/1).
-:-multifile(t_l:session_id/1).
+:- thread_local(t_l: session_id/1).
 
 % ===================================================================
 % IRC interaction
 % ===================================================================
-:- thread_local((t_l:default_channel/1, t_l:default_user/1, t_l:current_irc_receive/5 )).
+:- thread_local t_l:default_channel/1, t_l:default_user/1, t_l:current_irc_receive/5.
 % IRC EVENTS FROM CALL
 
 %= 	 	 
@@ -457,7 +461,7 @@ ignored_source(From):- atom_length(From,1).
 ignored_source(From):-
  bot_nick(BotNick),ctrl_nick(CtrlNick),arg(_,vv(BotNick,CtrlNick),Ignore),atom_contains(From,Ignore),!.
 
-:-dynamic(last_read_from_saved/4).
+:-dynamic(chat_config:chat_isChannelUserAct/4).
 :-dynamic(ignored_channel/1).
 :-dynamic(user:irc_event_hooks/3).
 :-multifile(user:irc_event_hooks/3).
@@ -481,8 +485,8 @@ user:irc_event_hooks(_Channel,_User,_Stuff):-fail.
 %
 % Recordlast.
 %
-recordlast(Channel,User,say(What)):-!,retractall(last_read_from_saved(Channel,User,say,_)),asserta(last_read_from_saved(Channel,User,say,What)),!.
-recordlast(Channel,User,What):-functor(What,F,_),retractall(last_read_from_saved(Channel,User,F,_)),asserta(last_read_from_saved(Channel,User,F,What)),!.
+recordlast(Channel,User,say(What)):-!,retractall(chat_config:chat_isChannelUserAct(Channel,User,say,_)),asserta(chat_config:chat_isChannelUserAct(Channel,User,say,What)),!.
+recordlast(Channel,User,What):-functor(What,F,_),retractall(chat_config:chat_isChannelUserAct(Channel,User,F,_)),asserta(chat_config:chat_isChannelUserAct(Channel,User,F,What)),!.
 
 % awaiting some inputs
 
@@ -502,11 +506,11 @@ ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,
 
 % attention (notice the fail to disable)
 ircEvent(Channel,Agent,say(W)):- fail,
-               atom_contains(W,"goodbye"),!,retractall(isChattingWith(Channel,Agent)).
+               atom_contains(W,"goodbye"),!,retractall(chat_config:chat_isWith(Channel,Agent)).
 ircEvent(Channel,Agent,say(W)):- fail,
                (bot_nick(BotNick),atom_contains(W,BotNick)),
-		retractall(isChattingWith(Channel,Agent)),!,
-		asserta(isChattingWith(Channel,Agent)),!,
+		retractall(chat_config:chat_isWith(Channel,Agent)),!,
+		asserta(chat_config:chat_isWith(Channel,Agent)),!,
 		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
 
 
@@ -518,11 +522,21 @@ ircEvent(Channel,Agent,say(W)):-
 
 % Call -> call_with_results
 ircEvent(Channel,Agent,call(CALL,Vs)):- 
-  ircEvent_call_filtered(Channel,Agent,CALL,Vs).
+  % thread_self(Self),tnodebug(Self),
+  use_agent_module(Agent),
+  notrace(ircEvent_call_filtered(Channel,Agent,CALL,Vs)),
+  save_agent_module(Agent).
 
 ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
 
+:- dynamic(chat_config:chat_isModule/3).
 
+:- module_transparent(use_agent_module/1).
+:- module_transparent(save_agent_module/1).
+use_agent_module(AgentS):- any_to_atom(AgentS,Agent),source_and_module_for_agent(Agent,Module,CallModule),!,'$set_source_module'(Module),'$set_typein_module'(CallModule).
+save_agent_module(AgentS):- any_to_atom(AgentS,Agent), retractall(chat_config:chat_isModule(Agent,_)), '$set_source_module'(Next,Next),'$module'(CallModule,CallModule),asserta(chat_config:chat_isModule(Agent,Next,CallModule)).
+source_and_module_for_agent(Agent,Module,CallModule):- chat_config:chat_isModule(Agent,Module,CallModule),!.
+source_and_module_for_agent(Agent,Agent,user):- add_import_module(Agent,user,end), add_import_module(Agent,eggdrop,end).
 
 
 :-export(unreadable/1).
@@ -584,7 +598,7 @@ eggdrop_bind_user_streams :-
         set_stream(Out, alias(current_output)),
         set_stream(Err, alias(current_error)),
   */      
-	thread_at_exit(close_ioe(In, Out, Err)))).
+	thread_at_exit(eggdrop:close_ioe(In, Out, Err)))).
 
 :- use_module(library(pengines)).
 
@@ -691,14 +705,15 @@ add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B)
 %
 ircEvent_call_filtered(_Channel,_Agent,CALL,_Vs):-var(CALL),!.
 ircEvent_call_filtered(_Channel,_Agent,end_of_file,_Vs):-!.
-ircEvent_call_filtered(_Channel,_Agent,(H :- B ),Vs):- user:add_maybe_static((H :- B),Vs),!.
-ircEvent_call_filtered(Channel,Agent,((=>(H)) :- B ),Vs):- ((=>(H :- B)) \== ((=>(H)) :- B )),!,ircEvent_call_filtered(Channel,Agent,(=>(H :- B)),Vs).
+ircEvent_call_filtered(_Channel,_Agent,(H :- B ),Vs):- add_maybe_static((H :- B),Vs),!.
+ircEvent_call_filtered(Channel,Agent,((=>(H)) :- B ),Vs):- 
+  ((=>(H :- B)) \== ((=>(H)) :- B )),!,ircEvent_call_filtered(Channel,Agent,(=>(H :- B)),Vs).
 ircEvent_call_filtered(Channel,Agent,'?-'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
-ircEvent_call_filtered(Channel,Agent,'=>'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,pfc_add(CALL),Vs),!.
+ircEvent_call_filtered(Channel,Agent,'=>'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,ain(CALL),Vs),!.
 ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_call_functor(S),!,
    (current_predicate(lisp_call/3) -> ircEvent_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
      my_wdmsg(cant_ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs))).
-ircEvent_call_filtered(Channel,Agent,CALL,Vs):- isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
+ircEvent_call_filtered(Channel,Agent,CALL,Vs):- chat_config:chat_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
 ircEvent_call_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!. 
 
 
@@ -750,7 +765,7 @@ ircEvent_call(Channel,Agent,CALL,Vs):-
 %
 % Cit.
 %
-cit:- get_time(HH), call_in_thread(with_error_channel(dmiles_afk:err,writeln(user_error,HH))).
+cit:- get_time(HH), call_in_thread(with_error_channel(dmiles:err,writeln(user_error,HH))).
 
 %= 	 	 
 
@@ -758,7 +773,7 @@ cit:- get_time(HH), call_in_thread(with_error_channel(dmiles_afk:err,writeln(use
 %
 % Cit Extended Helper.
 %
-cit2:- get_time(HH), rtrace(with_error_channel(dmiles_afk:err,writeln(user_error,HH))).
+cit2:- get_time(HH), rtrace(with_error_channel(dmiles:err,writeln(user_error,HH))).
 
 %= 	 	 
 
@@ -833,7 +848,7 @@ vars_as_comma :- retractall(egg:vars_as(_)),asserta(egg:vars_as(comma)).
 %
 format_nv(N,V):- format('~w=',[N]),write_v(V).
 
-write_v(V):- attvar(V),attvar_to_dict(V,Dict),writeq(Dict),!.
+write_v(V):- attvar(V),if_defined_else(attvar_to_dict(V,Dict),fail),writeq(Dict),!.
 write_v(V):- var(V),(var_property(V,name(EN))->write(EN);writeq(V)),!.
 write_v(V):- writeq(V).
 
@@ -900,9 +915,10 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 % Call Using Results.
 %
 call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
- w_tl(t_l:disable_px, 
-  expand_term(CMDI,CMDG)),
-   expand_goal(CMDG,CMD),
+ w_tl(t_l:disable_px,((
+  user:expand_term(CMDI,CMDG),
+   user:expand_goal(CMDG,CMD)))),
+    (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
     show_call(call_with_results_0(CMD,VsRA)).
 
 :-module_transparent(call_with_results_0/2).
@@ -947,9 +963,8 @@ call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 %
 % Call Using Results Helper Number 3..
 %
-call_with_results_3(CCMD,Vs):-
-  
-   show_call((CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
+call_with_results_3(CCMD,Vs):- 
+   show_call((user:CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
      (once((Done==true -> (once(write_varvalues2(Vs)),write('. ')) ; (once(write_varvalues2(Vs)),write('; '),N>28)))).
 
 :-export(with_output_channel/2).
@@ -1240,10 +1255,8 @@ say_list(OutStream,Channel,Prefix,[N|L]):-!,
    flushed_privmsg(OutStream,Channel,'~w: ~w',[Prefix,N]),
 	say_list(OutStream,Channel,Prefix,L),!.
 
-:-thread_local t_l:put_server_count/1.
-:-multifile t_l:put_server_count/1.
-:-thread_local t_l:put_server_no_max/0.
-:-multifile t_l:put_server_no_max/0.
+:-thread_local t_l: put_server_count/1.
+:-thread_local t_l: put_server_no_max/0.
 
 
 %= 	 	 
@@ -1262,8 +1275,8 @@ t_l:put_server_count(0).
 %
 % Check Put Server Count.
 %
-check_put_server_count(0):- if_defined(t_l:put_server_no_max),retractall(t_l:put_server_count(_)),asserta(t_l:put_server_count(0)).
-check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,asserta(t_l:put_server_count(Is)),!,Is =< Max.
+check_put_server_count(0):- if_defined(t_l:put_server_no_max),retractall(t_l:put_server_count(_)),tl_set(put_server_count(0)).
+check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,tl_set(put_server_count(Is)),!,Is =< Max.
 % 
 
 %= 	 	 
@@ -1475,7 +1488,6 @@ egg_go:-
 :- module_transparent((unreadable)/1).
 :- module_transparent((recordlast)/3).
 :- module_transparent((ignored_channel)/1).
-:- module_transparent((last_read_from_saved)/4).
 :- module_transparent((ignored_source)/1).
 :- module_transparent((last_read_from)/3).
 :- module_transparent((irc_receive)/5).
@@ -1494,8 +1506,6 @@ egg_go:-
 :- module_transparent((deregister_unsafe_preds)/0).
 :- module_transparent((remove_pred_egg)/3).
 :- module_transparent((unsafe_preds_egg)/3).
-:- module_transparent((isRegistered)/3).
-:- module_transparent((isChattingWith)/2).
 :- module_transparent((my_wdmsg)/1).
 :- module_transparent((ctrl_port)/1).
 :- module_transparent((ctrl_pass)/1).
@@ -1505,13 +1515,13 @@ egg_go:-
 
 :- source_location(S,_),prolog_load_context(module,M),
  forall(source_file(M:H,S),ignore((functor(H,F,A),
-   \+ mpred_database_term(F/A,_),
+   nop((\+ mpred_database_term(F/A,_))),
    F\=='$mode',
    F\=='$pldoc',
-   ignore(((\+ atom_concat('$',_,F),\+ mpred_database_term(F/A,_),export(F/A)))),
+   ignore(((\+ atom_concat('$',_,F),export(F/A)))),
    \+ predicate_property(M:H,transparent),
    ignore(((\+ atom_concat('__aux',_,F),format('~N:- module_transparent((~q)/~q).~n',[F,A])))),
    M:module_transparent(M:F/A)))).
 
-% :- ircEvent("dmiles_afk","dmiles_afk",say("(?- (a b c))")).
+% :- ircEvent("dmiles","dmiles",say("(?- (a b c))")).
 
