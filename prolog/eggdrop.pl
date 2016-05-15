@@ -15,9 +15,14 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   % eggdrop_e:stream_close/1,eggdrop_e:stream_read/2,eggdrop_e:stream_write/2,eggdrop_io:stream_close/1,eggdrop_io:stream_read/2,
   % eggdrop_io:stream_write/2,t_l:put_server_count/1,t_l:put_server_no_max/0,t_l:session_id/1
   ]).
-:- '$set_source_module'(eggdrop).
 
- :- meta_predicate 
+:- if(exists_source(library(logicmoo_utils))).
+:- use_module(library(logicmoo_utils)).
+:- endif.
+
+:- use_module(library(socket)).
+
+:- meta_predicate 
         call_in_thread(0),
         call_with_results_0(0, ?),
         call_with_results_2(0, ?),
@@ -44,7 +49,23 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
          say/1,
    chat_config:chat_isRegistered/3]).*/
 
-:- autoload.
+
+%% my_wdmsg( ?Msg) is semidet.
+%
+% My Wdmsg.
+%
+my_wdmsg(Msg):- string(Msg),format(user_error,'~N% ~s~N',[Msg]),flush_output(user_error),!.
+my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((cnotrace((lmcache:current_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
+my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
+
+:-dynamic(chat_config:chat_isWith/2).
+:-dynamic(chat_config:chat_isRegistered/3).
+:- thread_local(t_l:(disable_px)).
+
+:- my_wdmsg("HI there").
+
+% :- autoload([verbose(false)]).
+
 /*
 :- (multifile t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1, user:irc_event_hooks/3).
 :- module_transparent ((add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,call_with_results_0/2,call_with_results_2/2,call_with_results_3/2,
@@ -151,22 +172,6 @@ TODO
 * perhaps use "commalists" instead of ordinary lists for each solution ? (makes it look more like a traditional interactor reply, and looks more sensible, logically)
 
 */
-
-
-
-%= 	 	 
-
-%% my_wdmsg( ?Msg) is semidet.
-%
-% My Wdmsg.
-%
-my_wdmsg(Msg):- string(Msg),format(user_error,'~N% ~s~N',[Msg]),flush_output(user_error),!.
-my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((notrace((current_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
-my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
-
-:-dynamic(chat_config:chat_isWith/2).
-:-dynamic(chat_config:chat_isRegistered/3).
-:- thread_local(t_l:(disable_px)).
 
 
 %= 	 	 
@@ -280,7 +285,7 @@ eggdropConnect(Host,Port,CtrlNick,Pass):-
        ignore(ctrl_nick(CtrlNick)),
        ignore(ctrl_pass(Pass)),   
        tcp_socket(SocketId),
-       wdmsg(tcp_connect(SocketId,Host:Port)),
+       my_wdmsg(tcp_connect(SocketId,Host:Port)),
        tcp_connect(SocketId,Host:Port),
        tcp_open_socket(SocketId, IN, OutStream),
        format(OutStream,'~w\n',[CtrlNick]),flush_output(OutStream),
@@ -417,14 +422,14 @@ pubm(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,sa
 irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):- 
  my_wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
    string_to_atom(USER,ID),
-   call_in_thread((      
+   (call_in_thread((      
      w_tl([
        t_l:put_server_count(0),
        t_l:default_channel(DEST),       
        t_l:default_user(USER),
        t_l:session_id(ID),       
        t_l:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)],
-        with_resource_limit((eggdrop_bind_user_streams, ircEvent(DEST,USER,MESSAGE)))))).
+        with_resource_limit((eggdrop_bind_user_streams, ircEvent(DEST,USER,MESSAGE))))))).
        
 
 %= 	 	 
@@ -536,7 +541,7 @@ ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(
 use_agent_module(AgentS):- any_to_atom(AgentS,Agent),source_and_module_for_agent(Agent,Module,CallModule),!,'$set_source_module'(Module),'$set_typein_module'(CallModule).
 save_agent_module(AgentS):- any_to_atom(AgentS,Agent), retractall(chat_config:chat_isModule(Agent,_)), '$set_source_module'(Next,Next),'$module'(CallModule,CallModule),asserta(chat_config:chat_isModule(Agent,Next,CallModule)).
 source_and_module_for_agent(Agent,Module,CallModule):- chat_config:chat_isModule(Agent,Module,CallModule),!.
-source_and_module_for_agent(Agent,Agent,user):- add_import_module(Agent,user,end), add_import_module(Agent,eggdrop,end).
+source_and_module_for_agent(Agent,Agent,user):- maybe_add_import_module(Agent,user,end), maybe_add_import_module(Agent,eggdrop,end).
 
 
 :-export(unreadable/1).
@@ -931,7 +936,7 @@ call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
 % call Using results  Primary Helper.
 %
 call_with_results_0(CMD,Vs):- 
- b_setval('$variable_names', Vs),
+ set_varname_list( Vs),
  flag(num_sols,_,0),
  (call_with_results_2(CMD,Vs) *-> 
   (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
@@ -1002,7 +1007,7 @@ with_input_channel_user(Channel,User,CMD):-
 % Using Input/output.
 %
 with_io(CMD):-
-  current_input(IN),current_output(OUT),thread_current_error_stream(Err),  
+  current_input(IN),current_output(OUT),lmcache:thread_current_error_stream(Err),  
   call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_error_stream(Err))).
 
 %with_no_input(CMD):-  current_input(Prev), open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,call_cleanup(CMD,set_input(Prev)).
@@ -1054,7 +1059,7 @@ with_error_to_output(CMD):-
 with_error_channel(_Agent, CMD):-  !, CMD.
 with_error_channel(Agent,CMD):- fail,
    current_input(IN),current_output(OUT),
-   current_main_error_stream(MAINERROR),
+   lmcache:current_main_error_stream(MAINERROR),
    set_prolog_IO(IN,OUT,MAINERROR),
    new_memory_file(MF),
    open_memory_file(MF, write, ERR), 
@@ -1245,7 +1250,7 @@ say_list(_OutStream,_Channel,_Prefix,[]).
 
 say_list(_OutStream,_Channel,_Prefix,['']):- !.
 say_list(OutStream,Channel,Prefix,[S,'']):-!, say_list(OutStream,Channel,Prefix,[S]).
-% say_list(OutStream,Channel,Prefix,[S|L]):- wdmsg(say_list(OutStream,Channel,Prefix,[S|L])),fail.
+% say_list(OutStream,Channel,Prefix,[S|L]):- my_wdmsg(say_list(OutStream,Channel,Prefix,[S|L])),fail.
 say_list(OutStream,Channel,Prefix,[S|L]):- atom_string(N,S),atom_concat('\t',Front,N),atom_concat('   ',Front,NEW),!,say_list(OutStream,Channel,Prefix,[NEW|L]).
 
 say_list(OutStream,Channel,Prefix,[N|L]):- any_to_string(Prefix,S),any_to_string(Channel,S),!,
@@ -1275,8 +1280,8 @@ t_l:put_server_count(0).
 %
 % Check Put Server Count.
 %
-check_put_server_count(0):- if_defined(t_l:put_server_no_max),retractall(t_l:put_server_count(_)),tl_set(put_server_count(0)).
-check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,tl_set(put_server_count(Is)),!,Is =< Max.
+check_put_server_count(0):- if_defined(t_l:put_server_no_max),retractall(t_l:put_server_count(_)),asserta(t_l:put_server_count(0)).
+check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,asserta(t_l:put_server_count(Is)),!,Is =< Max.
 % 
 
 %= 	 	 
@@ -1512,10 +1517,19 @@ egg_go:-
 :- module_transparent((ctrl_nick)/1).
 :- module_transparent((ctrl_server)/1).
 :- module_transparent((bot_nick)/1).
+:- module_transparent((write_v)/1).
+:- module_transparent((source_and_module_for_agent)/3).
+:- module_transparent((with_resource_limit)/1).
+:- module_transparent((with_no_input)/1).
+:- module_transparent((with_io)/1).
+:- module_transparent((with_input_channel_user)/3).
+:- module_transparent((with_error_to_output)/1).
+:- module_transparent((ignore_catch)/1).
+:- module_transparent((call_in_thread)/1).
 
 :- source_location(S,_),prolog_load_context(module,M),
  forall(source_file(M:H,S),ignore((functor(H,F,A),
-   nop((\+ mpred_database_term(F/A,_))),
+   nop((\+ mpred_database_term(F,A,_))),
    F\=='$mode',
    F\=='$pldoc',
    ignore(((\+ atom_concat('$',_,F),export(F/A)))),
