@@ -20,7 +20,8 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
 :- use_module(library(logicmoo_utils)).
 :- endif.
 
-:- use_module(library(socket)).
+:- set_lang(pl).
+:- set_file_lang(pl).
 
 :- meta_predicate 
         call_in_thread(0),
@@ -55,7 +56,7 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
 % My Wdmsg.
 %
 my_wdmsg(Msg):- string(Msg),format(user_error,'~N% ~s~N',[Msg]),flush_output(user_error),!.
-my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((cnotrace((lmcache:current_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
+my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((cnotrace((get_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
 my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
 
 :-dynamic(chat_config:chat_isWith/2).
@@ -523,14 +524,16 @@ ircEvent(Channel,Agent,Event):-doall(call_no_cuts(user:irc_event_hooks(Channel,A
 
 % Say -> Call
 ircEvent(Channel,Agent,say(W)):- 
-   forall(eggdrop:read_each_term_egg(W,CMD,Vs),ircEvent(Channel,Agent,call(CMD,Vs))).
+ with_dmsg_to_main((
+   forall(eggdrop:read_each_term_egg(W,CMD,Vs),ircEvent(Channel,Agent,call(CMD,Vs))))),!.
 
 % Call -> call_with_results
 ircEvent(Channel,Agent,call(CALL,Vs)):- 
-  % thread_self(Self),tnodebug(Self),
-  use_agent_module(Agent),
-  notrace(ircEvent_call_filtered(Channel,Agent,CALL,Vs)),
-  save_agent_module(Agent).
+ with_dmsg_to_main((
+  thread_self(Self),tnodebug(Self),
+  use_agent_module(Agent),!,
+  hotrace(ircEvent_call_filtered(Channel,Agent,CALL,Vs)),
+  save_agent_module(Agent))),!.
 
 ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
 
@@ -572,7 +575,8 @@ read_each_term_egg(S,CMD,Vs):-
   ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)))).
 
 %:- ensure_loaded(library(logicmoo/snark/common_logic_sexpr)).
-:- ensure_loaded(library(clpfd)).
+:- set_file_lang(pl).
+:- user:ensure_loaded(library(clpfd)).
 
 
 
@@ -744,15 +748,6 @@ is_lisp_call_functor('?>').
 ircEvent_call(Channel,Agent,CALL,Vs):-  fail,
  my_wdmsg(cdo_ircEvent_call(Channel,Agent,CALL,Vs)),
  call_cleanup(call_with_results(CALL,Vs),flush_output).
-
-ircEvent_call(Channel,Agent,CALL,Vs):-  
- my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
-  % debug(_),
-  % gtrace,  
-  with_output_channel(Channel,
-     with_error_channel(Channel,
-       ((stream_property(X,alias(current_output)),set_stream(X,alias(user_output))),
-         with_no_input(catch(call_with_results(CALL,Vs),E,(((say(Agent,[Channel,': ',E])),fail))))))),!.
 
 ircEvent_call(Channel,Agent,CALL,Vs):-  
  my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
@@ -1007,8 +1002,9 @@ with_input_channel_user(Channel,User,CMD):-
 % Using Input/output.
 %
 with_io(CMD):-
-  current_input(IN),current_output(OUT),lmcache:thread_current_error_stream(Err),  
-  call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_error_stream(Err))).
+ with_dmsg_to_main((
+  current_input(IN),current_output(OUT),get_thread_current_error(Err),  
+  call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_error_stream(Err))))).
 
 %with_no_input(CMD):-  current_input(Prev), open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,call_cleanup(CMD,set_input(Prev)).
 % with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
@@ -1059,7 +1055,7 @@ with_error_to_output(CMD):-
 with_error_channel(_Agent, CMD):-  !, CMD.
 with_error_channel(Agent,CMD):- fail,
    current_input(IN),current_output(OUT),
-   lmcache:current_main_error_stream(MAINERROR),
+   get_main_error_stream(MAINERROR),
    set_prolog_IO(IN,OUT,MAINERROR),
    new_memory_file(MF),
    open_memory_file(MF, write, ERR), 
@@ -1101,6 +1097,7 @@ read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,C
 % Update Changed Files Eggdrop.
 %
 update_changed_files_eggdrop :-
+ with_dmsg_to_main(( with_no_dmsg((
         set_prolog_flag(verbose_load,true),
         ensure_loaded(library(make)),
 	findall(File, make:modified_file(File), Reload0),
@@ -1116,7 +1113,7 @@ update_changed_files_eggdrop :-
 	->  true
 	;   
            true %list_undefined,list_void_declarations
-	).
+	))))),!.
 
   
 % ===================================================================
@@ -1535,6 +1532,7 @@ egg_go:-
    ignore(((\+ atom_concat('$',_,F),export(F/A)))),
    \+ predicate_property(M:H,transparent),
    ignore(((\+ atom_concat('__aux',_,F),format('~N:- module_transparent((~q)/~q).~n',[F,A])))),
+   M:multifile(M:F/A),
    M:module_transparent(M:F/A)))).
 
 % :- ircEvent("dmiles","dmiles",say("(?- (a b c))")).
