@@ -881,7 +881,7 @@ dict_to_attvar_egg(Mod:Dict,Out):-
 %
 format_nv(N,V):- format('~w=',[N]),write_v(V).
 
-write_v(V):- attvar(V),if_defined(attvar_to_dict_egg(V,Dict),fail),writeq(Dict),!.
+%write_v(V):- attvar(V),if_defined(attvar_to_dict_egg(V,Dict),fail),writeq(Dict),!.
 write_v(V):- var(V),(var_property(V,name(EN))->write(EN);writeq(V)),!.
 write_v(V):- writeq(V).
 
@@ -893,8 +893,17 @@ write_v(V):- writeq(V).
 %
 % Write Varvalues Extended Helper.
 %
-write_varvalues2(Vs):-egg:vars_as(comma),!,write_varcommas2(Vs).
-write_varvalues2(Vs):-write('['),copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varvalues3(CVs).
+% write_varvalues2(Vs):-egg:vars_as(comma),!,write_varcommas2(Vs),write_residuals(Vs).
+
+write_varvalues2([]):-!.
+write_varvalues2(Vs):-write('['), 
+   copy_term(Vs,Vs,Goals), 
+   write_varvalues3(Vs),
+   write_goals(Goals).
+
+writeqln(G):-writeq(G),nl.
+
+write_goals(Goals):- Goals==[]-> true ; (nl, maplist(writeqln,Goals)).
 
 %= 	 	 
 
@@ -999,7 +1008,7 @@ call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 %
 call_with_results_3(CCMD,Vs):- 
    show_call((user:CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
-     (once((Done==true -> (once(write_varvalues2(Vs)),write('. ')) ; (once(write_varvalues2(Vs)),write('; '),N>28)))).
+     (once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('. ')) ; (once(\+ \+ write_varvalues2(Vs)),write('; '),N>28)))).
 
 :-export(with_output_channel/2).
 :-module_transparent(with_output_channel(+,0)).
