@@ -1,4 +1,7 @@
-
+:- if(exists_source(library(logicmoo_utils))).
+:- if(( system:use_module(system:library('logicmoo/util/logicmoo_util_clause_expansion.pl')), push_modules)). 
+:- endif.
+:- endif.
 :- module(eggdrop, [
 add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
   consultation_thread/2,ctcp/6,ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,
@@ -11,20 +14,29 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,with_no_input/1,
   with_output_channel/2,with_resource_limit/1,egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,
   chat_config:chat_isChannelUserAct/4,
+  attvar_to_dict_egg/2,
+  % dict_to_attvar_egg/2,
   format_nv/2
   % eggdrop_e:stream_close/1,eggdrop_e:stream_read/2,eggdrop_e:stream_write/2,eggdrop_io:stream_close/1,eggdrop_io:stream_read/2,
   % eggdrop_io:stream_write/2,t_l:put_server_count/1,t_l:put_server_no_max/0,t_l:session_id/1
   ]).
+% restore entry state
+:- reset_modules.
 
-:- if(exists_source(library(logicmoo_utils))).
-:- use_module(library(logicmoo_utils)).
+:- if((fail,exists_source(library(atts)))).
+:- set_prolog_flag(metaterm,true).
+:- use_module(library(atts)).
 :- endif.
 
-:- set_lang(pl).
-:- set_file_lang(pl).
+:- if(exists_source(library(logicmoo_utils))).
+:- system:use_module(library(logicmoo_utils)).
+:- endif.
+
+:- set_prolog_flag(dialect_pfc,false).
 
 :- meta_predicate 
         call_in_thread(0),
+        with_dmsg_to_main_err(0),
         call_with_results_0(0, ?),
         call_with_results_2(0, ?),
         call_with_results_3(0, ?),
@@ -68,7 +80,7 @@ my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
 % :- autoload([verbose(false)]).
 
 /*
-:- (multifile t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1, user:irc_event_hooks/3).
+:- (multifile t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1, lmconf:irc_event_hooks/3).
 :- module_transparent ((add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,call_with_results_0/2,call_with_results_2/2,call_with_results_3/2,
   check_put_server_count/1,cit/0,cit2/0,cit3/0,close_ioe/3,consultation_codes/3,consultation_thread/2,ctcp/6,
   ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,egg_go_fg/0,eggdropConnect/0,
@@ -87,8 +99,8 @@ my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
 :- export((call_with_results_2/2,call_with_results_3/2,cit2/0,cit3/0,privmsg0/3,privmsg1/3,
   privmsg2/3,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1 ,call_with_results_0/2,call_with_results_2/2,call_with_results_3/2,
   cit2/0,cit3/0,privmsg0/3,privmsg1/3,privmsg2/3,write_varcommas2/1,write_varcommas3/1,write_varvalues2/1,write_varvalues3/1 )).
-:- dynamic (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,chat_config:chat_isChannelUserAct/4,user:irc_event_hooks/3  )).
-:- multifile (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,chat_config:chat_isChannelUserAct/4,user:irc_event_hooks/3  )).
+:- dynamic (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,chat_config:chat_isChannelUserAct/4,lmconf:irc_event_hooks/3  )).
+:- multifile (( egg:stdio/3,egg:vars_as/1,ignored_channel/1,chat_config:chat_isWith/2,chat_config:chat_isRegistered/3,last_read_from/3,chat_config:chat_isChannelUserAct/4,lmconf:irc_event_hooks/3  )).
 :- (volatile egg:stdio/3, t_l:put_server_count/1, t_l:put_server_no_max/0, t_l:session_id/1).
 */
 
@@ -462,27 +474,28 @@ ignored_source(From):-var(From),!,fail.
 ignored_source("yesbot").
 ignored_source(From):-not(string(From)),!,text_to_string(From,String),!,ignored_source(String).
 %  from bot telnet
-ignored_source(From):- atom_length(From,1).
+ignored_source(From):- atom(From),atom_length(From,1).
 % from the process or bot
 ignored_source(From):-
  bot_nick(BotNick),ctrl_nick(CtrlNick),arg(_,vv(BotNick,CtrlNick),Ignore),atom_contains(From,Ignore),!.
 
 :-dynamic(chat_config:chat_isChannelUserAct/4).
 :-dynamic(ignored_channel/1).
-:-dynamic(user:irc_event_hooks/3).
-:-multifile(user:irc_event_hooks/3).
+:-dynamic(lmconf:irc_event_hooks/3).
+:-multifile(lmconf:irc_event_hooks/3).
 
 
 %= 	 	 
 
-%% irc_event_hooks( ?Channel, ?User, ?Stuff) is semidet.
+%% lmconf:irc_event_hooks( ?Channel, ?User, ?Stuff) is semidet.
 %
-% Hook To [user:irc_event_hooks/3] For Module Eggdrop.
+% Hook To [lmconf:irc_event_hooks/3] For Module Eggdrop.
 % Irc Event Hooks.
 %
-user:irc_event_hooks(_Channel,_User,_Stuff):-fail.
+lmconf:irc_event_hooks(_Channel,_User,_Stuff):-fail.
 
-
+with_dmsg_to_main_err(G):-!,call(G).
+with_dmsg_to_main_err(G):-with_dmsg_to_main(G).
 
 
 %= 	 	 
@@ -520,16 +533,16 @@ ircEvent(Channel,Agent,say(W)):- fail,
 		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
 
 
-ircEvent(Channel,Agent,Event):-doall(call_no_cuts(user:irc_event_hooks(Channel,Agent,Event))),fail.
+ircEvent(Channel,Agent,Event):-doall(call_no_cuts(lmconf:irc_event_hooks(Channel,Agent,Event))),fail.
 
 % Say -> Call
 ircEvent(Channel,Agent,say(W)):- 
- with_dmsg_to_main((
+ with_dmsg_to_main_err((
    forall(eggdrop:read_each_term_egg(W,CMD,Vs),ircEvent(Channel,Agent,call(CMD,Vs))))),!.
 
 % Call -> call_with_results
 ircEvent(Channel,Agent,call(CALL,Vs)):- 
- with_dmsg_to_main((
+ with_dmsg_to_main_err((
   thread_self(Self),tnodebug(Self),
   use_agent_module(Agent),!,
   hotrace(ircEvent_call_filtered(Channel,Agent,CALL,Vs)),
@@ -575,7 +588,7 @@ read_each_term_egg(S,CMD,Vs):-
   ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)))).
 
 %:- ensure_loaded(library(logicmoo/snark/common_logic_sexpr)).
-:- set_file_lang(pl).
+%:- set_file_lang(pl).
 :- user:ensure_loaded(library(clpfd)).
 
 
@@ -840,6 +853,26 @@ vars_as_list :- retractall(egg:vars_as(_)),asserta(egg:vars_as(list)).
 vars_as_comma :- retractall(egg:vars_as(_)),asserta(egg:vars_as(comma)).
 
 
+attvar_to_dict_egg(AttVar,Dict):-
+   get_attrs(AttVar,Att3s),
+   attrs_to_pairs(Att3s,DictPairs),
+   dict_create(Dict,AttVar,DictPairs).
+
+attrs_to_pairs(att(N,V,Att3s),[N=V|DictPairs]):-!,attrs_to_pairs(Att3s,DictPairs).
+attrs_to_pairs(DictPairs,DictPairs).
+/*
+dict_to_attvar_egg(Dict):- dict_to_attvar_egg(Dict,_),!.
+dict_to_attvar_egg(_:Dict,Out):- \+ compound(Dict),!,Out=Dict.
+dict_to_attvar_egg(Mod:Dict,Out):- 
+   is_dict(Dict),dict_pairs(Dict,M,Pairs),
+   (atom(M)->atts_put(+,Out,M,Pairs);
+   (var(M)-> (M=Out,put_atts(Out,Mod:Pairs)))),!.
+dict_to_attvar_egg(Mod:Dict,Out):- 
+  compound_name_arguments(Dict,F,Args),
+   maplist(Mod:dict_to_attvar_egg,Args,ArgsO),!,
+   compound_name_arguments(Out,F,ArgsO).
+*/
+
 %= 	 	 
 
 %% format_nv( ?N, ?V) is semidet.
@@ -848,7 +881,7 @@ vars_as_comma :- retractall(egg:vars_as(_)),asserta(egg:vars_as(comma)).
 %
 format_nv(N,V):- format('~w=',[N]),write_v(V).
 
-write_v(V):- attvar(V),if_defined_else(attvar_to_dict(V,Dict),fail),writeq(Dict),!.
+write_v(V):- attvar(V),if_defined(attvar_to_dict_egg(V,Dict),fail),writeq(Dict),!.
 write_v(V):- var(V),(var_property(V,name(EN))->write(EN);writeq(V)),!.
 write_v(V):- writeq(V).
 
@@ -915,11 +948,12 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 % Call Using Results.
 %
 call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
- w_tl(t_l:disable_px,((
+ ignore((
+ nodebugx((w_tl(t_l:disable_px,((
   user:expand_term(CMDI,CMDG),
    user:expand_goal(CMDG,CMD)))),
     (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
-    show_call(call_with_results_0(CMD,VsRA)).
+    show_call(call_with_results_0(CMD,VsRA)))))),!.
 
 :-module_transparent(call_with_results_0/2).
 :-export(call_with_results_0/2).
@@ -1002,9 +1036,9 @@ with_input_channel_user(Channel,User,CMD):-
 % Using Input/output.
 %
 with_io(CMD):-
- with_dmsg_to_main((
+ with_dmsg_to_main_err((
   current_input(IN),current_output(OUT),get_thread_current_error(Err),  
-  call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_error_stream(Err))))).
+  setup_call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_error_stream(Err))))).
 
 %with_no_input(CMD):-  current_input(Prev), open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,call_cleanup(CMD,set_input(Prev)).
 % with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
@@ -1037,6 +1071,7 @@ ignore_catch(CALL):-ignore(catch(CALL,E,my_wdmsg(E:CALL))).
 %
 % Using Error Converted To Output.
 %
+with_error_to_output(CMD):- !, CMD.
 with_error_to_output(CMD):- 
    current_input(IN),current_output(OUT),!,
    with_io((set_prolog_IO(IN,OUT,OUT), CMD)).
@@ -1063,7 +1098,7 @@ with_error_channel(Agent,CMD):- fail,
    setup_call_cleanup_each(CMD,(ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),read_from_agent_and_send(Agent,MF))).
 */
 with_error_channel(Agent, CMD):- !,  with_err_to_pred(say(Agent),CMD).
-with_error_channel(_Agent, CMD):-  !, CMD.
+with_error_channel(_Agent, CMD):-  !, call(CMD).
 with_error_channel(_Agent,CMD):- !, with_error_to_output(CMD).
 
           	
@@ -1097,7 +1132,7 @@ read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,C
 % Update Changed Files Eggdrop.
 %
 update_changed_files_eggdrop :-
- with_dmsg_to_main(( with_no_dmsg((
+ with_dmsg_to_main_err(( with_no_dmsg((
         set_prolog_flag(verbose_load,true),
         ensure_loaded(library(make)),
 	findall(File, make:modified_file(File), Reload0),
@@ -1438,7 +1473,7 @@ egg_go:-
 
 
   
-% :-asserta(user:irc_user_plays(_,dmiles,dmiles)).
+% :-asserta(lmconf:irc_user_plays(_,dmiles,dmiles)).
 
 % :- if_startup_script -> egg_go ; true.
 
