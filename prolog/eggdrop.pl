@@ -1,5 +1,9 @@
 :- if(exists_source(library(logicmoo_utils))).
-%:- if(( system:use_module(system:library('logicmoo/util/logicmoo_util_clause_expansion.pl')), push_modules)). 
+:-if((multifile(baseKB:ignore_file_mpreds/1),dynamic(baseKB:ignore_file_mpreds/1), (prolog_load_context(file,F) -> ain(baseKB:ignore_file_mpreds(F)) ; true))).
+:-endif.
+:-if((multifile(baseKB:mpred_is_impl_file/1),dynamic(baseKB:mpred_is_impl_file/1),prolog_load_context(file,F),call(assert_if_new,baseKB:mpred_is_impl_file(F)))).
+:-endif.
+%:- if(( system:use_module(system:library('logicmoo/util/logicmoo_util_clause_expansion.pl')), push_modules)).
 %:- endif.
 :- endif.
 
@@ -32,13 +36,11 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
 :- if(exists_source(library(logicmoo_utils))).
 :- user:use_module(library(logicmoo_utils)).
 
-:- (source_file(F,_) -> ain(baseKB:ignore_file_mpreds(F)) ; true).
-
 :- endif.
 
 :- set_prolog_flag(dialect_pfc,false).
 
-:- meta_predicate 
+:- meta_predicate
         call_in_thread(0),
         with_dmsg_to_main_err(0),
         call_with_results_0(0, ?),
@@ -71,7 +73,7 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
 %
 % My Wdmsg.
 %
-my_wdmsg(Msg):- string(Msg),format(user_error,'~N% ~s~N',[Msg]),flush_output(user_error),!.
+my_wdmsg(Msg):- string(Msg),format(current_error,'~N% ~s~N',[Msg]),flush_output(current_error),!.
 my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((cnotrace((get_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
 my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
 
@@ -120,7 +122,7 @@ egg_to_string([A],S):- on_x_fail(atom_string(A,S)),!.
 :- include('.ircbot.pl').
 :- else.
 
-%= 	 	 
+%=
 
 %% bot_nick( ?PrologMUD1) is semidet.
 %
@@ -128,7 +130,7 @@ egg_to_string([A],S):- on_x_fail(atom_string(A,S)),!.
 %
 bot_nick("PrologMUD").
 
-%= 	 	 
+%=
 
 %% ctrl_server( ?Localhost1) is semidet.
 %
@@ -136,7 +138,7 @@ bot_nick("PrologMUD").
 %
 ctrl_server(localhost).
 
-%= 	 	 
+%=
 
 %% ctrl_nick( ?Swipl1) is semidet.
 %
@@ -144,7 +146,7 @@ ctrl_server(localhost).
 %
 ctrl_nick("swipl").
 
-%= 	 	 
+%=
 
 %% ctrl_pass( ?Top5ecret1) is semidet.
 %
@@ -152,7 +154,7 @@ ctrl_nick("swipl").
 %
 ctrl_pass("top5ecret").
 
-%= 	 	 
+%=
 
 %% ctrl_port( ?Port) is semidet.
 %
@@ -176,8 +178,8 @@ ctrl_port(3334).
 :- ensure_loaded(library(logicmoo_utils)).
 % :- use_module(library(resource_bounds)).
 /*
-my_wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
-my_wdmsg(CMD):-format(user_error,'~q~n',[CMD]),flush_output(user_error),!.
+my_wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(current_error,'~q~n',[CMD]),flush_output(current_error),!.
+my_wdmsg(CMD):-format(current_error,'~q~n',[CMD]),flush_output(current_error),!.
 */
 /*
 TODO
@@ -185,7 +187,7 @@ TODO
 * one may consider letting it wait until a query is completed with a `.'
 
 * consider using numbervars/[3,4] <http://www.swi-prolog.org/pldoc/man?section=manipterm#numbervars/3>,
-  <http://www.swi-prolog.org/pldoc/man?section=termrw#write_term/2> (option numbervars) 
+  <http://www.swi-prolog.org/pldoc/man?section=termrw#write_term/2> (option numbervars)
    for printing the variables (named ones in query, and freshly generated ones)
 
 * skip printing toplevel vars marked with "_" in  findall(_X, fact(_X), Xs).
@@ -195,7 +197,7 @@ TODO
 */
 
 
-%= 	 	 
+%=
 
 %% lmconf:chat_isRegistered( ?Channel, ?Agent, ?Execute3) is semidet.
 %
@@ -219,7 +221,7 @@ lmconf:chat_isRegistered(_,_,execute):-!.
 :-use_module(library(process)).
 
 
-%= 	 	 
+%=
 
 %% unsafe_preds_egg( ?M, ?F, ?A) is semidet.
 %
@@ -231,7 +233,7 @@ unsafe_preds_egg(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A
 
 :- export(remove_pred_egg/3).
 
-%= 	 	 
+%=
 
 %% remove_pred_egg( ?M, ?F, ?A) is semidet.
 %
@@ -245,7 +247,7 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 % :-use_module(library(uid)).
 % only if root
 
-%= 	 	 
+%=
 
 %% deregister_unsafe_preds is semidet.
 %
@@ -259,7 +261,7 @@ deregister_unsafe_preds:-!.
 :-redefine_system_predicate(system:halt).
 :-abolish(system:halt,0).
 
-%= 	 	 
+%=
 
 %% halt is semidet.
 %
@@ -281,7 +283,7 @@ system:halt:- format('the halting problem is now solved!').
 :- ain(mtExact(lmcache)).
 :- ain(mtExact(lmconf)).
 
-%= 	 	 
+%=
 
 %% eggdropConnect is semidet.
 %
@@ -289,7 +291,7 @@ system:halt:- format('the halting problem is now solved!').
 %
 eggdropConnect:- eggdropConnect(_Host,_Port,_CtrlNick,_Pass).
 
-%= 	 	 
+%=
 
 %% eggdropConnect( ?CtrlNick, ?Port) is semidet.
 %
@@ -297,7 +299,7 @@ eggdropConnect:- eggdropConnect(_Host,_Port,_CtrlNick,_Pass).
 %
 eggdropConnect(CtrlNick,Port):-eggdropConnect(_Host,Port,CtrlNick,_Pass).
 
-%= 	 	 
+%=
 
 %% eggdropConnect( ?Host, ?Port, ?CtrlNick, ?Pass) is semidet.
 %
@@ -307,7 +309,7 @@ eggdropConnect(Host,Port,CtrlNick,Pass):-
        ignore(ctrl_server(Host)),
        ignore(ctrl_port(Port)),
        ignore(ctrl_nick(CtrlNick)),
-       ignore(ctrl_pass(Pass)),   
+       ignore(ctrl_pass(Pass)),
        tcp_socket(SocketId),
        my_wdmsg(tcp_connect(SocketId,Host:Port)),
        tcp_connect(SocketId,Host:Port),
@@ -319,13 +321,13 @@ eggdropConnect(Host,Port,CtrlNick,Pass):-
 
 :-export(consultation_thread/2).
 
-%= 	 	 
+%=
 
 %% consultation_thread( ?CtrlNick, ?Port) is semidet.
 %
 % Consultation Thread.
 %
-consultation_thread(CtrlNick,Port):- 
+consultation_thread(CtrlNick,Port):-
       eggdropConnect(CtrlNick,Port),
       to_egg('.echo off\n'),
       to_egg('.console ~w ""\n',[CtrlNick]),
@@ -335,13 +337,13 @@ consultation_thread(CtrlNick,Port):-
       % loop
       repeat,
          % update_changed_files_eggdrop,
-         catch(clpfd:read_line_to_codes(IN,Codes),_,Codes=end_of_file),    
+         catch(clpfd:read_line_to_codes(IN,Codes),_,Codes=end_of_file),
          Codes\=end_of_file,
          once(consultation_codes(CtrlNick,Port,Codes)),
          fail.
 
 
-%= 	 	 
+%=
 
 %% is_callable_egg( ?CMD) is semidet.
 %
@@ -361,7 +363,7 @@ is_callable_egg(CMD):- callable(CMD),
 %user_call(CMD):-module_call('user',CMD).
 
 
-%= 	 	 
+%=
 
 %% consultation_codes( ?CtrlNick, ?Port, ?Codes) is semidet.
 %
@@ -370,7 +372,7 @@ is_callable_egg(CMD):- callable(CMD),
 consultation_codes(CtrlNick,Port,end_of_file):-!,consultation_thread(CtrlNick,Port).
 consultation_codes(_BotNick,_Port,Codes):-
       text_to_string(Codes,String),
-      catch(read_term_from_atom(String,CMD,[]),_E,(my_wdmsg(String),!,fail)),!,      
+      catch(read_term_from_atom(String,CMD,[]),_E,(my_wdmsg(String),!,fail)),!,
       is_callable_egg(CMD),
       my_wdmsg(maybe_call(CMD)),!,
       catch(CMD,E,my_wdmsg(E:CMD)).
@@ -379,7 +381,7 @@ consultation_codes(_BotNick,_Port,Codes):-
 % IRC EVENTS Bubble from here
 :- export(get2react/1).
 
-%= 	 	 
+%=
 
 %% get2react( ?ARG1) is semidet.
 %
@@ -395,7 +397,7 @@ get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),show_failure((current_
 :- thread_local t_l:default_channel/1, t_l:default_user/1, t_l:current_irc_receive/5.
 % IRC EVENTS FROM CALL
 
-%= 	 	 
+%=
 
 %% part( ?USER, ?HOSTMASK, ?TYPE, ?DEST, ?MESSAGE) is semidet.
 %
@@ -403,7 +405,7 @@ get2react([L|IST1]):- CALL =.. [L|IST1],functor(CALL,F,A),show_failure((current_
 %
 part(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,part(USER, HOSTMASK,TYPE,DEST,MESSAGE)).
 
-%= 	 	 
+%=
 
 %% join( ?USER, ?HOSTMASK, ?TYPE, ?DEST) is semidet.
 %
@@ -411,7 +413,7 @@ part(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,pa
 %
 join(USER, HOSTMASK,TYPE,DEST):- irc_receive(USER, HOSTMASK,TYPE,DEST,join(USER, HOSTMASK,TYPE,DEST)).
 
-%= 	 	 
+%=
 
 %% msgm( ?USER, ?HOSTMASK, ?TYPE, ?DEST, ?MESSAGE) is semidet.
 %
@@ -419,7 +421,7 @@ join(USER, HOSTMASK,TYPE,DEST):- irc_receive(USER, HOSTMASK,TYPE,DEST,join(USER,
 %
 msgm(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,say(MESSAGE)).
 
-%= 	 	 
+%=
 
 %% ctcp( ?USER, ?HOSTMASK, ?FROM, ?DEST, ?TYPE, ?MESSAGE) is semidet.
 %
@@ -427,7 +429,7 @@ msgm(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,sa
 %
 ctcp(USER, HOSTMASK,_FROM,DEST,TYPE,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,ctcp(TYPE,MESSAGE)).
 
-%= 	 	 
+%=
 
 %% pubm( ?USER, ?HOSTMASK, ?TYPE, ?DEST, ?MESSAGE) is semidet.
 %
@@ -437,32 +439,32 @@ pubm(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,sa
 
 
 
-%= 	 	 
+%=
 
 %% irc_receive( ?USER, ?HOSTMASK, ?TYPE, ?DEST, ?MESSAGE) is semidet.
 %
 % Irc Receive.
 %
-irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):- 
+irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
  my_wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
    string_to_atom(USER,ID),
-   (call_in_thread((      
+   (call_in_thread((
      w_tl([
        t_l:put_server_count(0),
-       t_l:default_channel(DEST),       
+       t_l:default_channel(DEST),
        t_l:default_user(USER),
-       t_l:session_id(ID),       
+       t_l:session_id(ID),
        t_l:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)],
         with_resource_limit((eggdrop_bind_user_streams, ircEvent(DEST,USER,MESSAGE))))))).
-       
 
-%= 	 	 
+
+%=
 
 %% with_resource_limit( :GoalCall) is semidet.
 %
 % Using Resource Limit.
 %
-with_resource_limit(Call):- thread_self(main),!,rtrace((guitracer,trace,Call)).
+with_resource_limit(Call):- thread_self_main,!,rtrace((guitracer,trace,Call)).
 with_resource_limit(Call):- !,nodebugx(Call).
 % with_resource_limit(Goal):- show_call(eggdrop,nodebugx(resource_bounded_call(Goal, 1000.0, _Status, []))).
 with_resource_limit(Call):- nodebugx(call_with_time_limit(30,Call)).
@@ -475,7 +477,7 @@ with_resource_limit(Call):- nodebugx(call_with_time_limit(30,Call)).
 
 % convert all to strings
 
-%= 	 	 
+%=
 
 %% ignored_source( ?From) is semidet.
 %
@@ -496,7 +498,7 @@ ignored_source(From):-
 :-multifile(lmconf:irc_event_hooks/3).
 
 
-%= 	 	 
+%=
 
 %% lmconf:irc_event_hooks( ?Channel, ?User, ?Stuff) is semidet.
 %
@@ -509,7 +511,7 @@ with_dmsg_to_main_err(G):-!,call(G).
 with_dmsg_to_main_err(G):-with_dmsg_to_main(G).
 
 
-%= 	 	 
+%=
 
 %% recordlast( ?Channel, ?User, ?What) is semidet.
 %
@@ -520,13 +522,13 @@ recordlast(Channel,User,What):-functor(What,F,_),retractall(lmconf:chat_isChanne
 
 % awaiting some inputs
 
-%= 	 	 
+%=
 
 %% ircEvent( ?DEST, ?User, ?Event) is semidet.
 %
 % Irc Event.
 %
-ircEvent(DEST,User,say(W)):- 
+ircEvent(DEST,User,say(W)):-
  term_to_atom(cu(DEST,User),QUEUE),
    message_queue_property(_, alias(QUEUE)),
      show_call(ircEvent,thread_send_message(QUEUE,W)).
@@ -537,6 +539,7 @@ ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,
 % attention (notice the fail to disable)
 ircEvent(Channel,Agent,say(W)):- fail,
                atom_contains(W,"goodbye"),!,retractall(lmconf:chat_isWith(Channel,Agent)).
+
 ircEvent(Channel,Agent,say(W)):- fail,
                (bot_nick(BotNick),atom_contains(W,BotNick)),
 		retractall(lmconf:chat_isWith(Channel,Agent)),!,
@@ -544,15 +547,20 @@ ircEvent(Channel,Agent,say(W)):- fail,
 		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
 
 
+%:- rtrace, trace.
 ircEvent(Channel,Agent,Event):-doall(call_no_cuts(lmconf:irc_event_hooks(Channel,Agent,Event))),fail.
 
+%:-notrace.
+
+
+
 % Say -> Call
-ircEvent(Channel,Agent,say(W)):- 
+ircEvent(Channel,Agent,say(W)):-
  with_dmsg_to_main_err((
    forall(eggdrop:read_each_term_egg(W,CMD,Vs),ircEvent(Channel,Agent,call(CMD,Vs))))),!.
 
 % Call -> call_with_results
-ircEvent(Channel,Agent,call(CALL,Vs)):- 
+ircEvent(Channel,Agent,call(CALL,Vs)):-
  with_dmsg_to_main_err((
   thread_self(Self),tnodebug(Self),
   use_agent_module(Agent),!,
@@ -573,7 +581,7 @@ source_and_module_for_agent(Agent,Agent,user):- maybe_add_import_module(Agent,us
 
 :-export(unreadable/1).
 
-%= 	 	 
+%=
 
 %% unreadable( ?UR) is semidet.
 %
@@ -584,14 +592,14 @@ unreadable(UR):-my_wdmsg(unreadable(UR)).
 :-export(read_each_term_egg/3).
 :-module_transparent(read_each_term_egg/3).
 
-%= 	 	 
+%=
 
 %% read_each_term_egg( ?S, ?CMD, ?Vs) is semidet.
 %
 % Read Each Term Egg.
 %
-read_each_term_egg(S,CMD,Vs):-   
-  show_failure(( l_open_input(S,Stream),  
+read_each_term_egg(S,CMD,Vs):-
+  show_failure(( l_open_input(S,Stream),
       findall(CMD-Vs,(
        repeat,
        read_one_term_egg(Stream,CMD,Vs),
@@ -600,6 +608,7 @@ read_each_term_egg(S,CMD,Vs):-
 
 %:- ensure_loaded(library(logicmoo/snark/common_logic_sexpr)).
 %:- set_file_lang(pl).
+
 :- user:ensure_loaded(library(clpfd)).
 
 
@@ -608,15 +617,15 @@ read_each_term_egg(S,CMD,Vs):-
 :-export(eggdrop_bind_user_streams/0).
 
 
-%= 	 	 
+%=
 
 %% eggdrop_bind_user_streams is semidet.
 %
 % Eggdrop Bind User Streams.
 %
-eggdrop_bind_user_streams :- thread_self(main),!.
+eggdrop_bind_user_streams :- thread_self_main,!.
 eggdrop_bind_user_streams :-
-  user:((	
+  user:((
 	user:open_prolog_stream(eggdrop_io, write, Out, []),
         user:open_prolog_stream(eggdrop_e, write, Err, []),
 	set_stream(Out, buffer(line)),
@@ -626,11 +635,11 @@ eggdrop_bind_user_streams :-
         set_output(Out),
 /*        set_stream(In,  alias(user_input)),
         set_stream(Out, alias(user_output)),
-        set_stream(Err, alias(user_error)),
+        set_stream(Err, alias(current_error)),
 	set_stream(In,  alias(current_input)),
         set_stream(Out, alias(current_output)),
         set_stream(Err, alias(current_error)),
-  */      
+  */
 	thread_at_exit(eggdrop:close_ioe(In, Out, Err)))).
 
 :- use_module(library(pengines)).
@@ -646,7 +655,7 @@ eggdrop_bind_user_streams :-
 
 
 
-%= 	 	 
+%=
 
 %% stream_write( ?Stream, ?Out) is semidet.
 %
@@ -655,7 +664,7 @@ eggdrop_bind_user_streams :-
 %
 eggdrop_io:stream_write(_Stream, Out) :- t_l:default_channel(RETURN),say(RETURN,Out).
 
-%= 	 	 
+%=
 
 %% stream_read( ?Stream, ?Data) is semidet.
 %
@@ -665,7 +674,7 @@ eggdrop_io:stream_write(_Stream, Out) :- t_l:default_channel(RETURN),say(RETURN,
 eggdrop_io:stream_read(_Stream, "") :- !.
 eggdrop_io:stream_read(_Stream, Data) :- prompt(Prompt, Prompt), pengines:pengine_input(_{type:console, prompt:Prompt}, Data).
 
-%= 	 	 
+%=
 
 %% stream_close( ?Stream) is semidet.
 %
@@ -680,7 +689,7 @@ eggdrop_e:stream_read(_Stream, Data) :- prompt(Prompt, Prompt), pengines:pengine
 eggdrop_e:stream_close(_Stream).
 
 
-%= 	 	 
+%=
 
 %% close_ioe( ?In, ?Out, ?Err) is semidet.
 %
@@ -697,13 +706,13 @@ close_ioe(In, Out, Err) :-
 :-export(read_one_term_egg/3).
 :-module_transparent(read_one_term_egg/3).
 
-%= 	 	 
+%=
 
 %% read_one_term_egg( ?Stream, ?CMD, ?Vs) is semidet.
 %
 % Read One Term Egg.
 %
-read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
+read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!,
        with_stream_pos(InStream,show_entry(read_one_term_egg(InStream,CMD,Vs))).
 read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
 % read_one_term_egg(Stream,CMD,Vs):- catch((input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
@@ -714,7 +723,7 @@ read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream
 
 :-export(add_maybe_static/2).
 
-%= 	 	 
+%=
 
 %% add_maybe_static( ?H, ?Vs) is semidet.
 %
@@ -731,7 +740,7 @@ add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B)
 :-module_transparent(ircEvent_call_filtered/4).
 :-export(ircEvent_call_filtered/4).
 
-%= 	 	 
+%=
 
 %% ircEvent_call_filtered( ?Channel, ?Agent, ?CALL, ?Vs) is semidet.
 %
@@ -740,7 +749,7 @@ add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B)
 ircEvent_call_filtered(_Channel,_Agent,CALL,_Vs):-var(CALL),!.
 ircEvent_call_filtered(_Channel,_Agent,end_of_file,_Vs):-!.
 ircEvent_call_filtered(_Channel,_Agent,(H :- B ),Vs):- add_maybe_static((H :- B),Vs),!.
-ircEvent_call_filtered(Channel,Agent,((=>(H)) :- B ),Vs):- 
+ircEvent_call_filtered(Channel,Agent,((=>(H)) :- B ),Vs):-
   ((=>(H :- B)) \== ((=>(H)) :- B )),!,ircEvent_call_filtered(Channel,Agent,(=>(H :- B)),Vs).
 ircEvent_call_filtered(Channel,Agent,'?-'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
 ircEvent_call_filtered(Channel,Agent,'=>'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,ain(CALL),Vs),!.
@@ -748,10 +757,10 @@ ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_ca
    (current_predicate(lisp_call/3) -> ircEvent_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
      my_wdmsg(cant_ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs))).
 ircEvent_call_filtered(Channel,Agent,CALL,Vs):- lmconf:chat_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
-ircEvent_call_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!. 
+ircEvent_call_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!.
 
 
-%= 	 	 
+%=
 
 %% is_lisp_call_functor( ?FUNCTOR) is semidet.
 %
@@ -764,7 +773,12 @@ is_lisp_call_functor('?>').
 :-module_transparent(ircEvent_call/4).
 :-export(ircEvent_call/4).
 
-%= 	 	 
+agent_module(Agent,AgentModule):- string_to_atom(Agent,AgentModule),
+   add_import_module(AgentModule,baseKB,end),
+   add_import_module(AgentModule,eggdrop,end),
+   add_import_module(AgentModule,lmconf,end),
+   add_import_module(AgentModule,user,end).
+
 
 %% ircEvent_call( ?Channel, ?Agent, ?CALL, ?Vs) is semidet.
 %
@@ -774,50 +788,56 @@ ircEvent_call(Channel,Agent,CALL,Vs):-  fail,
  my_wdmsg(cdo_ircEvent_call(Channel,Agent,CALL,Vs)),
  call_cleanup(call_with_results(CALL,Vs),flush_output).
 
-ircEvent_call(Channel,Agent,CALL,Vs):-  
- my_wdmsg(do_ircEvent_call(Channel,Agent,CALL,Vs)),
+
+ircEvent_call(Channel,Agent,Query,Bindings):-
+   agent_module(Agent,AgentModule),
+     '$toplevel':call_expand_query(Query, ExpandedQuery,
+                          Bindings, ExpandedBindings)
+            ->  AgentModule:expand_goal(ExpandedQuery, Goal),
+ my_wdmsg(do_ircEvent_call(Channel,Agent,Goal,ExpandedBindings)),
   % debug(_),
-  % gtrace,  
+  % gtrace,
   with_output_channel(Channel,
      with_error_channel(Channel,
        (nop((stream_property(X,alias(current_output)),set_stream(X,alias(user_output)))),
-         with_no_input(catch(call_with_results(CALL,Vs),E,(((say(Agent,[Channel,': ',E])),fail))))))),!.
+         with_no_input((
+          AgentModule:catch(call_with_results(Goal,ExpandedBindings),E,(((my_wdmsg(E),say(Agent,[Channel,': ',E])),!,fail)))))))),!.
 
 
-%= 	 	 
+%=
 
 %% cit is semidet.
 %
 % Cit.
 %
-cit:- get_time(HH), call_in_thread(with_error_channel(dmiles:err,writeln(user_error,HH))).
+cit:- get_time(HH), call_in_thread(with_error_channel(dmiles:err,writeln(current_error,HH))).
 
-%= 	 	 
+%=
 
 %% cit2 is semidet.
 %
 % Cit Extended Helper.
 %
-cit2:- get_time(HH), rtrace(with_error_channel(dmiles:err,writeln(user_error,HH))).
+cit2:- get_time(HH), rtrace(with_error_channel(dmiles:err,writeln(current_error,HH))).
 
-%= 	 	 
+%=
 
 %% cit3 is semidet.
 %
 % Cit3.
 %
-cit3:- get_time(HH), writeln(user_error,HH).
+cit3:- get_time(HH), writeln(current_error,HH).
 
 
 
 
-%= 	 	 
+%=
 
 %% call_in_thread( :GoalCMD) is semidet.
 %
 % Call In Thread.
 %
-call_in_thread(CMD):- thread_self(main),!,CMD.
+call_in_thread(CMD):- thread_self_main,!,CMD.
 % call_in_thread(CMD):- !,CMD.
 call_in_thread(CMD):- thread_create(CMD,_,[detached(true)]).
 call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
@@ -826,7 +846,7 @@ call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inhe
 :- dynamic(lmcache:vars_as/1).
 % :- thread_local lmcache:vars_as/1.
 
-%= 	 	 
+%=
 
 %% vars_as( ?VarType) is semidet.
 %
@@ -837,17 +857,17 @@ lmcache:vars_as(comma).
 
 :-export(flush_all_output/0).
 
-%= 	 	 
+%=
 
 %% flush_all_output is semidet.
 %
 % Flush All Output.
 %
-flush_all_output:- flush_output(user_error),flush_output.
+flush_all_output:- flush_output(current_error),flush_output.
 
 :-export(vars_as_list/0).
 
-%= 	 	 
+%=
 
 %% vars_as_list is semidet.
 %
@@ -856,7 +876,7 @@ flush_all_output:- flush_output(user_error),flush_output.
 vars_as_list :- retractall(lmcache:vars_as(_)),asserta(lmcache:vars_as(list)).
 :-export(vars_as_comma/0).
 
-%= 	 	 
+%=
 
 %% vars_as_comma is semidet.
 %
@@ -873,19 +893,19 @@ attvar_to_dict_egg(AttVar,Dict):-
 attrs_to_pairs(att(N,V,Att3s),[N=V|DictPairs]):-!,attrs_to_pairs(Att3s,DictPairs).
 attrs_to_pairs(DictPairs,DictPairs).
 /*
-dict_to_attvar_egg(Dict):- dict_to_attvar_egg(Dict,_),!.
-dict_to_attvar_egg(_:Dict,Out):- \+ compound(Dict),!,Out=Dict.
-dict_to_attvar_egg(Mod:Dict,Out):- 
+dict_to_attvar_egg(MOD,Dict):- dict_to_attvar_egg(MOD,Dict,_),!.
+dict_to_attvar_egg(MOD,_:Dict,Out):- \+ compound(Dict),!,Out=Dict.
+dict_to_attvar_egg(MOD,Mod:Dict,Out):-
    is_dict(Dict),dict_pairs(Dict,M,Pairs),
    (atom(M)->atts_put(+,Out,M,Pairs);
    (var(M)-> (M=Out,put_atts(Out,Mod:Pairs)))),!.
-dict_to_attvar_egg(Mod:Dict,Out):- 
+dict_to_attvar_egg(MOD,Mod:Dict,Out):-
   compound_name_arguments(Dict,F,Args),
-   maplist(Mod:dict_to_attvar_egg,Args,ArgsO),!,
+   maplist(dict_to_attvar_egg(MOD),Args,ArgsO),!,
    compound_name_arguments(Out,F,ArgsO).
 */
 
-%= 	 	 
+%=
 
 %% format_nv( ?N, ?V) is semidet.
 %
@@ -893,13 +913,13 @@ dict_to_attvar_egg(Mod:Dict,Out):-
 %
 format_nv(N,V):- format('~w=',[N]),write_v(V).
 
-%write_v(V):- attvar(V),if_defined(attvar_to_dict_egg(V,Dict),fail),writeq(Dict),!.
+% write_v(V):- attvar(V),if_defined(attvar_to_dict_egg(V,Dict),fail),writeq(Dict),!.
 write_v(V):- var(V),(var_property(V,name(EN))->write(EN);writeq(V)),!.
 write_v(V):- writeq(V).
 
 :-export(write_varvalues2/1).
 
-%= 	 	 
+%=
 
 %% write_varvalues2( ?Vs) is semidet.
 %
@@ -907,28 +927,31 @@ write_v(V):- writeq(V).
 %
 % write_varvalues2(Vs):-lmcache:vars_as(comma),!,write_varcommas2(Vs),write_residuals(Vs).
 
-write_varvalues2([]):-!.
-write_varvalues2(Vs):-write('['), 
-   copy_term(Vs,Vs,Goals), 
+write_varvalues2([]):-!,flush_all_output.
+write_varvalues2(Vs):-
+   flush_all_output,
+   write('% '),
+   copy_term(Vs,Vs,Goals),
    write_varvalues3(Vs),
-   write_goals(Goals).
+   write_goals(Goals),
+   flush_all_output.
 
-writeqln(G):-writeq(G),nl.
+writeqln(G):-writeq(G),write(' ').
 
-write_goals(Goals):- Goals==[]-> true ; (write(' '), maplist(writeqln,Goals)).
+write_goals(Goals):- Goals==[]-> true ; (nl, write('% '), maplist(writeqln,Goals),nl).
 
-%= 	 	 
+%=
 
 %% write_varvalues3( ?ARG1) is semidet.
 %
 % Write Varvalues3.
 %
-write_varvalues3([N=V]):- format_nv(N,V), write('];'),!,flush_all_output.
-write_varvalues3([N=V|Vs]):-format_nv(N,V),write(','),write_varvalues3(Vs),!,flush_all_output.
+write_varvalues3([N=V]):- format_nv(N,V),!.
+write_varvalues3([N=V|Vs]):-format_nv(N,V),write(', '),write_varvalues3(Vs),!.
 
 
 
-%= 	 	 
+%=
 
 %% write_varcommas2( ?Vs) is semidet.
 %
@@ -936,7 +959,7 @@ write_varvalues3([N=V|Vs]):-format_nv(N,V),write(','),write_varvalues3(Vs),!,flu
 %
 write_varcommas2(Vs):- copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varcommas3(CVs).
 
-%= 	 	 
+%=
 
 %% write_varcommas3( ?ARG1) is semidet.
 %
@@ -949,7 +972,7 @@ write_varcommas3([N=V|Vs]):-format_nv(N,V), write(','),!,write_varcommas3(Vs),!.
 
 :-export(remove_anons/2).
 
-%= 	 	 
+%=
 
 %% remove_anons( ?ARG1, ?VsRA) is semidet.
 %
@@ -962,7 +985,7 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 :-module_transparent(call_with_results/2).
 :-export(call_with_results/2).
 
-%= 	 	 
+%=
 
 %% call_with_results( ?CMDI, ?Vs) is semidet.
 %
@@ -970,25 +993,25 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 %
 call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
  ignore((
- nodebugx((w_tl(t_l:disable_px,((
-  user:expand_term(CMDI,CMDG),
-   user:expand_goal(CMDG,CMD)))),
-    (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
+ nodebugx((
+  w_tl(t_l:disable_px,user:expand_goal(CMDI,CMD)),
+  (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
     show_call(call_with_results_0(CMD,VsRA)))))),!.
 
 :-module_transparent(call_with_results_0/2).
 :-export(call_with_results_0/2).
 
-%= 	 	 
+%=
 
 %% call_with_results_0( :GoalCMD, ?Vs) is semidet.
 %
 % call Using results  Primary Helper.
 %
-call_with_results_0(CMD,Vs):- 
+call_with_results_0(CMD,Vs):-
  set_varname_list( Vs),
+ b_setval('$goal_term', CMD), /* DRM: added for expansion hooks*/
  flag(num_sols,_,0),
- (call_with_results_2(CMD,Vs) *-> 
+ (call_with_results_2(CMD,Vs) *->
   (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
      (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'),write(' '),(X=true->write(det(YN,N));write(nondet(YN,N))))).
 
@@ -997,13 +1020,13 @@ call_with_results_0(CMD,Vs):-
 :-module_transparent(call_with_results_2/2).
 :-export(call_with_results_2/2).
 
-%= 	 	 
+%=
 
 %% call_with_results_2( :GoalCMDIN, ?Vs) is semidet.
 %
 % call Using results  Extended Helper.
 %
-call_with_results_2(CMDIN,Vs):-  
+call_with_results_2(CMDIN,Vs):-
    CMDIN = CMD,functor_h(CMD,F,A),A2 is A+1,CMD=..[F|ARGS],atom_concat(F,'_with_vars',FF),
    (current_predicate(FF/A2)-> (CMDWV=..[FF|ARGS],append_term(CMDWV,Vs,CCMD)); CCMD=CMD),!,
    call_with_results_3(CCMD,Vs).
@@ -1012,45 +1035,45 @@ call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 :-module_transparent(call_with_results_3/2).
 :-export(call_with_results_3/2).
 
-%= 	 	 
+%=
 
 %% call_with_results_3( :GoalCCMD, ?Vs) is semidet.
 %
 % Call Using Results Helper Number 3..
 %
-call_with_results_3(CCMD,Vs):- 
+call_with_results_3(CCMD,Vs):-
    user:show_call(eggdrop,(CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
-     (once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('. ')) ; (once(\+ \+ write_varvalues2(Vs)),N>28)))).
+     (once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('% ')) ; (once(\+ \+ write_varvalues2(Vs)),N>28)))).
 
 :-export(with_output_channel/2).
 :-module_transparent(with_output_channel(+,0)).
 % with_output_channel(Channel,CMD):- CMD.
 
-%= 	 	 
+%=
 
 %% with_output_channel( +Channel, :GoalCMD) is semidet.
 %
 % Using Output Channel.
 %
-with_output_channel(Channel,CMD):- 
+with_output_channel(Channel,CMD):-
   with_output_to_pred(say(Channel),CMD).
 
 
 
-%= 	 	 
+%=
 
 %% with_input_channel_user( +Channel, +User, :GoalCMD) is semidet.
 %
 % Using Input Channel User.
 %
 with_input_channel_user(_,_,CMD):- !, with_no_input(CMD).
-with_input_channel_user(Channel,User,CMD):- 
+with_input_channel_user(Channel,User,CMD):-
   with_input_from_pred(last_read_from(Channel,User),CMD).
 
 :-export(with_io/1).
 :-meta_predicate(with_io(0)).
 
-%= 	 	 
+%=
 
 %% with_io( :GoalCMD) is semidet.
 %
@@ -1058,13 +1081,13 @@ with_input_channel_user(Channel,User,CMD):-
 %
 with_io(CMD):-
  with_dmsg_to_main_err((
-  current_input(IN),current_output(OUT),get_thread_current_error(Err),  
+  current_input(IN),current_output(OUT),get_thread_current_error(Err),
   setup_call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_error_stream(Err))))).
 
 %with_no_input(CMD):-  current_input(Prev), open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,call_cleanup(CMD,set_input(Prev)).
-% with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,user_error ),CMD.
+% with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,current_error ),CMD.
 
-%= 	 	 
+%=
 
 %% with_no_input( :GoalCMD) is semidet.
 %
@@ -1075,7 +1098,7 @@ with_no_input(CMD):- CMD.
 
 
 
-%= 	 	 
+%=
 
 %% ignore_catch( :GoalCALL) is semidet.
 %
@@ -1086,14 +1109,14 @@ ignore_catch(CALL):-ignore(catch(CALL,E,my_wdmsg(E:CALL))).
 
 :- meta_predicate with_error_to_output(0).
 
-%= 	 	 
+%=
 
 %% with_error_to_output( :GoalCMD) is semidet.
 %
 % Using Error Converted To Output.
 %
 with_error_to_output(CMD):- !, CMD.
-with_error_to_output(CMD):- 
+with_error_to_output(CMD):-
    current_input(IN),current_output(OUT),!,
    with_io((set_prolog_IO(IN,OUT,OUT), CMD)).
 
@@ -1101,7 +1124,7 @@ with_error_to_output(CMD):-
 :- module_transparent(with_error_channel/2).
 
 
-%= 	 	 
+%=
 
 %% with_error_channel( +Agent, :GoalCMD) is semidet.
 %
@@ -1114,7 +1137,7 @@ with_error_channel(Agent,CMD):- fail,
    get_main_error_stream(MAINERROR),
    set_prolog_IO(IN,OUT,MAINERROR),
    new_memory_file(MF),
-   open_memory_file(MF, write, ERR), 
+   open_memory_file(MF, write, ERR),
    set_prolog_IO(IN,OUT,ERR),!,
    setup_call_cleanup_each(CMD,(ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),read_from_agent_and_send(Agent,MF))).
 */
@@ -1122,10 +1145,10 @@ with_error_channel(Agent, CMD):- !,  with_err_to_pred(say(Agent),CMD).
 with_error_channel(_Agent, CMD):-  !, call(CMD).
 with_error_channel(_Agent,CMD):- !, with_error_to_output(CMD).
 
-          	
 
 
-%= 	 	 
+
+%=
 
 %% read_from_agent_and_send( ?Agent, ?MF) is semidet.
 %
@@ -1134,7 +1157,7 @@ with_error_channel(_Agent,CMD):- !, with_error_to_output(CMD).
 read_from_agent_and_send(Agent,MF):- open_memory_file(MF, read, Stream,[ free_on_close(true)]),ignore_catch(read_codes_and_send(Stream,Agent)),ignore_catch(close(Stream)).
 
 
-%= 	 	 
+%=
 
 %% read_codes_and_send( ?IN, ?Agent) is semidet.
 %
@@ -1146,7 +1169,7 @@ read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,C
 %:-servantProcessCreate(killable,'Consultation Mode Test (KIFBOT!) OPN Server',consultation_thread(swipl,3334),Id,[]).
 
 
-%= 	 	 
+%=
 
 %% update_changed_files_eggdrop is semidet.
 %
@@ -1163,21 +1186,21 @@ update_changed_files_eggdrop :-
 	;   true
 	),
 	print_message(silent, make(reload(Reload))),
-	maplist(make:reload_file, Reload),
+	make:maplist(reload_file, Reload),
 	print_message(silent, make(done(Reload))),
 	(   prolog:make_hook(after, Reload)
 	->  true
-	;   
-           true %list_undefined,list_void_declarations
+	;
+           true %(list_undefined,list_void_declarations)
 	))))),!.
 
-  
+
 % ===================================================================
 % IRC OUTPUT
 % ===================================================================
 :-export(sayq/1).
 
-%= 	 	 
+%=
 
 %% sayq( ?D) is semidet.
 %
@@ -1187,7 +1210,7 @@ sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
 
 :-export(say/1).
 
-%= 	 	 
+%=
 
 %% say( ?D) is semidet.
 %
@@ -1197,7 +1220,7 @@ say(D):- t_l:default_channel(C),say(C,D),!.
 say(D):- say("#logicmoo",D),!.
 
 
-%= 	 	 
+%=
 
 %% say_prefixed( ?Agent, ?Agent, ?Out) is semidet.
 %
@@ -1210,7 +1233,7 @@ say_prefixed(Agent,Prefix,Out):-sformat(SF,'~w: ~p',[Prefix,Out]), say(Agent,SF)
 :- export(say/2).
 
 
-%= 	 	 
+%=
 
 %% say( ?Channel, ?Data) is semidet.
 %
@@ -1225,7 +1248,7 @@ say(Channel,Data):-
 
 :-export(say/3).
 
-%= 	 	 
+%=
 
 %% say( ?OutStream, ?NonList, ?Data) is semidet.
 %
@@ -1246,7 +1269,7 @@ say(OutStream,Channel,Data):-
 say(OutStream,Channel,Data):-my_wdmsg(say(OutStream,Channel,Data)),!.
 
 
-%= 	 	 
+%=
 
 %% get_session_prefix( ?ID) is semidet.
 %
@@ -1258,7 +1281,7 @@ get_session_prefix('').
 
 % say_list(_OutStream,Channel,Text):-my_wdmsg(say_list(Channel,Text)),fail.
 
-%= 	 	 
+%=
 
 %% say_list( ?OutStream, ?Channel, ?List) is semidet.
 %
@@ -1269,7 +1292,7 @@ say_list(OutStream,Channel,List):-
   say_list(OutStream,Channel,Prefix,List),!.
 
 
-%= 	 	 
+%=
 
 %% is_empty( ?A) is semidet.
 %
@@ -1278,19 +1301,19 @@ say_list(OutStream,Channel,List):-
 is_empty(A):-egg_to_string(A,S),string_length(S,0).
 
 
-%= 	 	 
+%=
 
 %% flushed_privmsg( ?OutStream, ?Channel, ?Fmt, ?Args) is semidet.
 %
 % Flushed Privmsg.
 %
-flushed_privmsg(OutStream,Channel,Fmt,Args):- 
+flushed_privmsg(OutStream,Channel,Fmt,Args):-
   format(string(NS),Fmt,Args),
   privmsg(OutStream,Channel,NS),!,
   catch(flush_output(OutStream),_,true).
 
 
-%= 	 	 
+%=
 
 %% say_list( ?OutStream, ?Channel, ?ID, ?List) is semidet.
 %
@@ -1304,10 +1327,11 @@ say_list(_OutStream,_Channel,_Prefix,[]).
 say_list(_OutStream,_Channel,_Prefix,['']):- !.
 say_list(OutStream,Channel,Prefix,[S,'']):-!, say_list(OutStream,Channel,Prefix,[S]).
 % say_list(OutStream,Channel,Prefix,[S|L]):- my_wdmsg(say_list(OutStream,Channel,Prefix,[S|L])),fail.
-say_list(OutStream,Channel,Prefix,[S|L]):- atom_string(N,S),atom_concat('\t',Front,N),atom_concat('   ',Front,NEW),!,say_list(OutStream,Channel,Prefix,[NEW|L]).
+say_list(OutStream,Channel,Prefix,[S|L]):- on_x_fail(atom_string(N,S)),atom_concat('\t',Front,N),
+          atom_concat('   ',Front,NEW),!,say_list(OutStream,Channel,Prefix,[NEW|L]).
 
 say_list(OutStream,Channel,Prefix,[N|L]):- egg_to_string(Prefix,S),egg_to_string(Channel,S),!,
-        flushed_privmsg(OutStream,Channel,'~w',[N]),        
+        flushed_privmsg(OutStream,Channel,'~w',[N]),
 	say_list(OutStream,Channel,Prefix,L),!.
 say_list(OutStream,Channel,Prefix,[N|L]):-!,
    flushed_privmsg(OutStream,Channel,'~w: ~w',[Prefix,N]),
@@ -1317,7 +1341,7 @@ say_list(OutStream,Channel,Prefix,[N|L]):-!,
 :-thread_local t_l: put_server_no_max/0.
 
 
-%= 	 	 
+%=
 
 %% put_server_count( :GoalGOAL1) is semidet.
 %
@@ -1327,7 +1351,7 @@ say_list(OutStream,Channel,Prefix,[N|L]):-!,
 t_l:put_server_count(0).
 
 
-%= 	 	 
+%=
 
 %% check_put_server_count( ?Max) is semidet.
 %
@@ -1335,9 +1359,9 @@ t_l:put_server_count(0).
 %
 check_put_server_count(0):- if_defined(t_l:put_server_no_max),retractall(t_l:put_server_count(_)),asserta(t_l:put_server_count(0)).
 check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,asserta(t_l:put_server_count(Is)),!,Is =< Max.
-% 
+%
 
-%= 	 	 
+%=
 
 %% privmsg( ?OutStream, ?Channel, ?Text) is semidet.
 %
@@ -1348,7 +1372,7 @@ check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,asse
 privmsg(OutStream,Channel,Text):- string_codes(Text,Codes),privmsg0(OutStream,Channel,Codes).
 
 
-%= 	 	 
+%=
 
 %% privmsg0( ?OutStream, ?Channel, ?Codes) is semidet.
 %
@@ -1359,7 +1383,7 @@ privmsg0(OutStream,Channel,Codes):-length(Codes,Len),Len>430,length(LCodes,430),
 privmsg0(OutStream,Channel,Codes):-privmsg1(OutStream,Channel,Codes).
 
 
-%= 	 	 
+%=
 
 %% privmsg1( ?OutStream, ?Channel, ?Text) is semidet.
 %
@@ -1369,7 +1393,7 @@ privmsg1(OutStream,Channel,Text):-check_put_server_count(30)->privmsg2(OutStream
 
 
 
-%= 	 	 
+%=
 
 %% privmsg2( ?OutStream, ?Channel, ?Text) is semidet.
 %
@@ -1383,7 +1407,7 @@ privmsg2(OutStream,Channel,Text):- sleep(0.2),escape_quotes(Text,N),!,show_call(
 % privmsg2(OutStream,Channel,Text):- escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~s" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
 
 
-%= 	 	 
+%=
 
 %% putnotice( ?OutStream, ?Channel, ?Text) is semidet.
 %
@@ -1392,7 +1416,7 @@ privmsg2(OutStream,Channel,Text):- sleep(0.2),escape_quotes(Text,N),!,show_call(
 putnotice(OutStream,Channel,Text):-escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "NOTICE ~s :~w"\n',[Channel,N]),_,fail)),!.
 
 
-%= 	 	 
+%=
 
 %% privmsg_session( ?OutStream, ?Channel, ?Text) is semidet.
 %
@@ -1402,7 +1426,7 @@ privmsg_session(OutStream,Channel,Text):- t_l:session_id(ID),(ID==Channel->privm
 
 
 
-%= 	 	 
+%=
 
 %% to_egg( ?X) is semidet.
 %
@@ -1410,7 +1434,7 @@ privmsg_session(OutStream,Channel,Text):- t_l:session_id(ID),(ID==Channel->privm
 %
 to_egg(X):-to_egg('~w',[X]),!.
 
-%= 	 	 
+%=
 
 %% to_egg( ?X, ?Y) is semidet.
 %
@@ -1420,7 +1444,7 @@ to_egg(X,Y):-once(lmcache:stdio(_Agent,_InStream,OutStream)),once((sformat(S,X,Y
 
 
 
-%= 	 	 
+%=
 
 %% escape_quotes( ?LIST, ?ISO) is semidet.
 %
@@ -1438,7 +1462,7 @@ escape_quotes(LIST,ISO):-
 		% text_to_string(LISTO,ISO),!.
 
 
-%= 	 	 
+%=
 
 %% list_replace_egg( ?List, ?Char, ?Replace, ?NewList) is semidet.
 %
@@ -1457,7 +1481,7 @@ list_replace_egg(List,_Char,_Replace,List):-!.
 % ===================================================================
 
 
-%= 	 	 
+%=
 
 %% show_thread_exit is semidet.
 %
@@ -1466,7 +1490,7 @@ list_replace_egg(List,_Char,_Replace,List):-!.
 show_thread_exit:- my_wdmsg(warn(eggdrop_show_thread_exit)).
 
 
-%= 	 	 
+%=
 
 %% egg_go_fg is semidet.
 %
@@ -1475,25 +1499,25 @@ show_thread_exit:- my_wdmsg(warn(eggdrop_show_thread_exit)).
 egg_go_fg:-consultation_thread(swipl,3334).
 
 
-%= 	 	 
+%=
 
 %% egg_go is semidet.
 %
 % Egg Go.
 %
-egg_go:- 
+egg_go:-
  deregister_unsafe_preds,
- (thread_property(_,alias(egg_go)) -> 
-         true; 
+ (thread_property(_,alias(egg_go)) ->
+         true;
          thread_create(egg_go_fg,_,[alias(egg_go),detached(true),an_exit(show_thread_exit)])).
 
 /*
-:- source_location(S,_),forall(source_file(H,S),ignore(( ( \+predicate_property(H,PP),member(PP,[(multifile),built_in]) ),  
+:- source_location(S,_),forall(source_file(H,S),ignore(( ( \+predicate_property(H,PP),member(PP,[(multifile),built_in]) ),
  functor(H,F,A),module_transparent(F/A),export(F/A),user:import(H)))).
 */
 
 
-  
+
 % :-asserta(lmconf:irc_user_plays(_,dmiles,dmiles)).
 
 % :- if_startup_script -> egg_go ; true.

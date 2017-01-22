@@ -5,6 +5,5 @@ title('Hook up to an existing IRC Client called an Eggdrop').
 keywords([irc,networking,chatbots,logicmoo]).
 home('https://github.com/TeamSPoon/MUD_ircbot').
 download('http://packs.prologmoo.com/packs/eggdrop/release/eggdrop-*.tgz').
-requires(resbound).
 requires(logicmoo_base).
 
