@@ -1,5 +1,5 @@
-:- if(exists_source(library(logicmoo_utils))).
-:-if((multifile(baseKB:ignore_file_mpreds/1),dynamic(baseKB:ignore_file_mpreds/1), (prolog_load_context(file,F) -> ain(baseKB:ignore_file_mpreds(F)) ; true))).
+:-if(exists_source(library(logicmoo_utils))).
+:- if((multifile(baseKB:ignore_file_mpreds/1),dynamic(baseKB:ignore_file_mpreds/1), (prolog_load_context(file,F) -> ain(baseKB:ignore_file_mpreds(F)) ; true))).
 :-endif.
 :-if((multifile(baseKB:mpred_is_impl_file/1),dynamic(baseKB:mpred_is_impl_file/1),prolog_load_context(file,F),call(assert_if_new,baseKB:mpred_is_impl_file(F)))).
 :-endif.
@@ -253,8 +253,8 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 %
 % Deregister Unsafe Predicates.
 %
-deregister_unsafe_preds:-!.
-deregister_unsafe_preds:-if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
+deregister_unsafe_preds:- current_predicate(system:kill_unsafe_preds/0),!.
+deregister_unsafe_preds:- if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
 deregister_unsafe_preds:-!.
 
 % [Optionaly] Solve the Halting problem
