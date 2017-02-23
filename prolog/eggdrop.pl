@@ -3,8 +3,6 @@
 :-endif.
 :-if((multifile(baseKB:mpred_is_impl_file/1),dynamic(baseKB:mpred_is_impl_file/1),prolog_load_context(file,F),call(assert_if_new,baseKB:mpred_is_impl_file(F)))).
 :-endif.
-%:- if(( system:use_module(system:library('logicmoo/util/logicmoo_util_clause_expansion.pl')), push_modules)).
-%:- endif.
 :- endif.
 
 :- module(eggdrop, [
@@ -25,8 +23,8 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   % eggdrop_e:stream_close/1,eggdrop_e:stream_read/2,eggdrop_e:stream_write/2,eggdrop_io:stream_close/1,eggdrop_io:stream_read/2,
   % eggdrop_io:stream_write/2,t_l:put_server_count/1,t_l:put_server_no_max/0,t_l:session_id/1
   ]).
-% restore entry state
-%:- reset_modules.
+
+:- set_module(class(library)).
 
 :- if((fail,exists_source(library(atts)))).
 :- set_prolog_flag(metaterm,true).
@@ -74,7 +72,7 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
 % My Wdmsg.
 %
 my_wdmsg(Msg):- string(Msg),format(current_error,'~N% ~s~N',[Msg]),flush_output(current_error),!.
-my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((cnotrace((get_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
+my_wdmsg(Msg):- current_predicate(logicmoo_bugger_loaded/0),catch((notrace((get_main_error_stream(ERR), format(ERR,'~N% ~q.~N',[Msg]),flush_output(ERR)))),_,fail),!.
 my_wdmsg(Msg):- format(user_error,'~N% ~q.~n',[Msg]),flush_output(user_error),!.
 
 :-dynamic(lmconf:chat_isWith/2).
@@ -174,7 +172,7 @@ ctrl_port(3334).
 
 :- module_transparent(ircEvent/3).
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
-% supplies w_tl/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
+% supplies locally/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
 :- ensure_loaded(library(logicmoo_utils)).
 % :- use_module(library(resource_bounds)).
 /*
@@ -449,7 +447,7 @@ irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
  my_wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
    string_to_atom(USER,ID),
    (call_in_thread((
-     w_tl([
+     locally([
        t_l:put_server_count(0),
        t_l:default_channel(DEST),
        t_l:default_user(USER),
@@ -564,7 +562,7 @@ ircEvent(Channel,Agent,call(CALL,Vs)):-
  with_dmsg_to_main_err((
   thread_self(Self),tnodebug(Self),
   use_agent_module(Agent),!,
-  hotrace(ircEvent_call_filtered(Channel,Agent,CALL,Vs)),
+  no_trace(ircEvent_call_filtered(Channel,Agent,CALL,Vs)),
   save_agent_module(Agent))),!.
 
 ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
@@ -994,7 +992,7 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
  ignore((
  nodebugx((
-  w_tl(t_l:disable_px,user:expand_goal(CMDI,CMD)),
+  locally(t_l:disable_px,user:expand_goal(CMDI,CMD)),
   (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
     show_call(call_with_results_0(CMD,VsRA)))))),!.
 
@@ -1056,7 +1054,7 @@ call_with_results_3(CCMD,Vs):-
 % Using Output Channel.
 %
 with_output_channel(Channel,CMD):-
-  with_output_to_pred(say(Channel),CMD).
+  with_output_to_predicate(say(Channel),CMD).
 
 
 
@@ -1068,7 +1066,7 @@ with_output_channel(Channel,CMD):-
 %
 with_input_channel_user(_,_,CMD):- !, with_no_input(CMD).
 with_input_channel_user(Channel,User,CMD):-
-  with_input_from_pred(last_read_from(Channel,User),CMD).
+  with_input_from_predicate(last_read_from(Channel,User),CMD).
 
 :-export(with_io/1).
 :-meta_predicate(with_io(0)).
@@ -1139,9 +1137,9 @@ with_error_channel(Agent,CMD):- fail,
    new_memory_file(MF),
    open_memory_file(MF, write, ERR),
    set_prolog_IO(IN,OUT,ERR),!,
-   setup_call_cleanup_each(CMD,(ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),read_from_agent_and_send(Agent,MF))).
+   each_call_cleanup(CMD,(ignore_catch(flush_output(ERR)),ignore_catch(close(ERR)),read_from_agent_and_send(Agent,MF))).
 */
-with_error_channel(Agent, CMD):- !,  with_err_to_pred(say(Agent),CMD).
+with_error_channel(Agent, CMD):- !,  with_error_to_predicate(say(Agent),CMD).
 with_error_channel(_Agent, CMD):-  !, call(CMD).
 with_error_channel(_Agent,CMD):- !, with_error_to_output(CMD).
 
