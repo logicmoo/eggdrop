@@ -592,7 +592,7 @@ read_each_term_egg(S,CMD,Vs):-
        (CMD==end_of_file->!;true)),Results),!,
   ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)))).
 
-%:- ensure_loaded(library(logicmoo/snark/common_logic_sexpr)).
+%:- ensure_loaded(library(logicmoo/common_logic/common_logic_sexpr)).
 
 
 
