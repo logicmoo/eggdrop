@@ -26,6 +26,23 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
 
 :- set_module(class(library)).
 
+:- user:ensure_loaded(library(clpfd)).
+:- '@'((
+ op(1199,fx,('==>')), 
+ op(1190,xfx,('::::')),
+ op(1180,xfx,('==>')),
+ op(1170,xfx,'<==>'),  
+ op(1160,xfx,('<-')),
+ op(1150,xfx,'=>'),
+ op(1140,xfx,'<='),
+ op(1130,xfx,'<=>'), 
+ op(600,yfx,'&'), 
+ op(600,yfx,'v'),
+ op(350,xfx,'xor'),
+ op(300,fx,'~'),
+ op(300,fx,'-')),eggdrop).
+
+
 :- if((fail,exists_source(library(atts)))).
 :- set_prolog_flag(metaterm,true).
 :- use_module(library(atts)).
@@ -88,7 +105,6 @@ my_wdmsg(S,Msg):- format(S,'~N% ~q.~n',[Msg]),flush_output_safe(S),!.
 
 
 :-dynamic(lmconf:chat_isWith/2).
-:-dynamic(lmconf:chat_isRegistered/3).
 :- thread_local(t_l:(disable_px)).
 
 :- my_wdmsg("HI there").
@@ -197,6 +213,7 @@ TODO
 %
 % If Is A Registered.
 %
+:- dynamic(lmconf:chat_isRegistered/3).
 lmconf:chat_isRegistered(Channel,Agent,kifbot):-lmconf:chat_isWith(Channel,Agent).
 lmconf:chat_isRegistered(_,"someluser",execute):-!,fail.
 lmconf:chat_isRegistered("#ai",_,execute):-ignore(fail).
@@ -247,6 +264,8 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 %
 % Deregister Unsafe Predicates.
 %
+
+% deregister_unsafe_preds:-!.
 deregister_unsafe_preds:- current_predicate(system:kill_unsafe_preds/0),!.
 deregister_unsafe_preds:- if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
 deregister_unsafe_preds:-!.
@@ -330,13 +349,13 @@ consultation_thread(CtrlNick,Port):-
       must(egg:stdio(CtrlNick,IN,_)),!,
       % loop
       to_egg('.console #logicmoo\n',[]),
-      say(dmiles,consultation_thread(CtrlNick,Port)),
-      say("#logicmoo","hi therre!"),
+      % say(dmiles,consultation_thread(CtrlNick,Port)),
+      % say("#logicmoo","hi therre!"),
       repeat,
          nop(notrace(update_changed_files_eggdrop)),
-         catch(clpfd:read_line_to_codes(IN,Codes),_,Codes=end_of_file),
-         Codes\=end_of_file,
-         once(consultation_codes(CtrlNick,Port,Codes)),
+         catch(read_line_to_codes(IN,Text),_,Text=end_of_file),
+         Text\=end_of_file,
+         once(consultation_codes(CtrlNick,Port,Text)),
          fail.
 
 
@@ -463,7 +482,8 @@ irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
 % Using Resource Limit.
 %
 
-%with_rl(Call):- thread_self_main,!,rtrace((guitracer,trace,Call)).
+ % :- use_module(library(resource_bounds)).
+ %with_rl(Call):- thread_self(main),!,rtrace((guitracer,trace,Call)).
 with_rl(Call):- thread_self(main),!,Call.
 with_rl(Call):- !,nodebugx(Call).
 % with_rl(Goal):- show_call(eggdrop,nodebugx(resource_bounded_call(Goal, 1000.0, _Status, []))).
@@ -494,18 +514,18 @@ ignored_source(From):-
 
 :-dynamic(lmconf:chat_isChannelUserAct/4).
 :-dynamic(ignored_channel/1).
-:-dynamic(lmconf:irc_event_hooks/3).
-:-multifile(lmconf:irc_event_hooks/3).
+:-dynamic(user:irc_event_hooks/3).
+:-multifile(user:irc_event_hooks/3).
 
 
 
 
-%% lmconf:irc_event_hooks( ?Channel, ?User, ?Stuff) is det.
+%% user:irc_event_hooks( ?Channel, ?User, ?Stuff) is det.
 %
-% Hook To [lmconf:irc_event_hooks/3] For Module Eggdrop.
+% Hook To [user:irc_event_hooks/3] For Module Eggdrop.
 % Irc Event Hooks.
 %
-lmconf:irc_event_hooks(_Channel,_User,_Stuff):-fail.
+user:irc_event_hooks(_Channel,_User,_Stuff):-fail.
 
 
 
@@ -544,12 +564,18 @@ ircEvent(Channel,Agent,say(W)):- fail,
 		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
 
 
-ircEvent(Channel,Agent,Event):-doall(call_no_cuts(lmconf:irc_event_hooks(Channel,Agent,Event))),fail.
+ircEvent(Channel,Agent,Event):- once(doall(call_no_cuts(user:irc_event_hooks(Channel,Agent,Event)))),fail.
+
 
 % Say -> Call
 ircEvent(Channel,Agent,say(W)):-
- with_dmsg_to_main((
-   forall(eggdrop:read_each_term_egg(W,CMD,Vs),ircEvent(Channel,Agent,call(CMD,Vs))))),!.
+ % with_dmsg_to_main
+ ((
+   forall(
+   (read_egg_term(W,CMD,Vs),CMD\==end_of_file),
+   % eggdrop:read_each_term_egg(W,CMD,Vs),
+   ircEvent(Channel,Agent,call(CMD,Vs))))),!.
+
 
 % Call -> call_with_results
 ircEvent(Channel,Agent,call(CALL,Vs)):-
@@ -580,31 +606,6 @@ source_and_module_for_agent(Agent,Agent,user):- maybe_add_import_module(Agent,us
 % Unreadable.
 %
 unreadable(UR):-my_wdmsg(unreadable(UR)).
-
-:-export(read_each_term_egg/3).
-:-module_transparent(read_each_term_egg/3).
-
-
-
-%% read_each_term_egg( ?S, ?CMD, ?Vs) is det.
-%
-% Read Each Term Egg.
-%
-read_each_term_egg(S,CMD,Vs):-
-  show_failure(( l_open_input(S,Stream),
-      findall(CMD-Vs,(
-       repeat,
-       read_one_term_egg(Stream,CMD,Vs),
-       (CMD==end_of_file->!;true)),Results),!,
-  ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)))).
-
-%:- ensure_loaded(library(logicmoo/snark/common_logic_sexpr)).
-%:- set_file_lang(pl).
-
-:- user:ensure_loaded(library(clpfd)).
-
-
-
 
 :-export(eggdrop_bind_user_streams/0).
 
@@ -694,25 +695,6 @@ close_ioe(In, Out, Err) :-
         close(Err, [force(true)]),
 	close(Out, [force(true)]).
 
-
-
-
-:-export(read_one_term_egg/3).
-:-module_transparent(read_one_term_egg/3).
-
-
-
-%% read_one_term_egg( ?Stream, ?CMD, ?Vs) is det.
-%
-% Read One Term Egg.
-%
-read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!,
-       with_stream_pos(InStream,show_entry(read_one_term_egg(InStream,CMD,Vs))).
-read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
-% read_one_term_egg(Stream,CMD,Vs):- catch((input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
-read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[double_quotes(string),module(clpfd),variable_names(Vs)])),_,fail),CMD\==end_of_file,!.
-read_one_term_egg(Stream,unreadable(String),_):-catch((read_stream_to_codes(Stream,Codes),string_codes(String,Codes)),_,fail),!.
-read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream,Codes,[]),string_codes(String,Codes)),_,fail),!.
 
 
 :-export(add_maybe_static/2).
@@ -932,8 +914,10 @@ write_varvalues2(Vs):-
 
 writeqln(G):-writeq(G),write(' ').
 
-write_goals([G|Rest]):-writeq(G),write(' '),write_goals(Rest).
-write_goals([]).
+write_goals([]):-!.
+write_goals(List):-write_goals0(List),!,write(' ').
+write_goals0([G|Rest]):-write(' '),writeq(G),write_goals(Rest).
+write_goals0([]).
 
 
 
@@ -1170,12 +1154,18 @@ read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,C
 %
 % Update Changed Files Eggdrop.
 %
+
+  % update_changed_files_eggdrop :- !.
 update_changed_files_eggdrop :-
  with_dmsg_to_main(( with_no_dmsg((
         set_prolog_flag(verbose_load,true),
         ensure_loaded(library(make)),
 	findall(File, make:modified_file(File), Reload0),
 	list_to_set(Reload0, Reload),
+        update_changed_files_eggdrop(Reload))))),!.
+
+update_changed_files_eggdrop([]):-sleep(0.005).
+update_changed_files_eggdrop(Reload):-
 	(   prolog:make_hook(before, Reload)
 	->  true
 	;   true
@@ -1187,7 +1177,7 @@ update_changed_files_eggdrop :-
 	->  true
 	;
            true %(list_undefined,list_void_declarations)
-	))))),!.
+	),!.
 
 
 % ===================================================================
@@ -1491,21 +1481,25 @@ show_thread_exit:- my_wdmsg(warn(eggdrop_show_thread_exit)).
 %
 % Egg Go Fg.
 %
-egg_go_fg:-consultation_thread(swipl,3334).
-
-
+egg_go_fg:-
+  %deregister_unsafe_preds,
+  %set_prolog_flag(xpce,false),
+  %with_no_x
+  consultation_thread(swipl,3334).
 
 
 %% egg_go is det.
 %
 % Egg Go.
 %
-egg_go:-
- deregister_unsafe_preds,
- (thread_property(_,alias(egg_go)) ->
-         true;
-         thread_create(egg_go_fg,_,[alias(egg_go),detached(true),an_exit(show_thread_exit)])).
 
+% egg_go:- egg_go_fg,!.
+egg_go:- thread_property(R,status(running)),R == egg_go,!.
+egg_go:- thread_property(_,alias(egg_go)),threads,fail.
+egg_go:- thread_create(egg_go_fg,_,[alias(egg_go),detached(true),an_exit(show_thread_exit)]).
+
+
+egg_nogo:-thread_signal(egg_go,thread_exit(requested)).
 /*
 :- source_location(S,_),forall(source_file(H,S),ignore(( ( \+predicate_property(H,PP),member(PP,[(multifile),built_in]) ),
  functor(H,F,A),module_transparent(F/A),export(F/A),user:import(H)))).
@@ -1513,11 +1507,71 @@ egg_go:-
 
 
 
-% :-asserta(lmconf:irc_user_plays(_,dmiles,dmiles)).
+%% read_one_term_egg( ?Stream, ?CMD, ?Vs) is det.
+%
+% Read One Term Egg.
+%
+:-export(read_one_term_egg/3).
+:-module_transparent(read_one_term_egg/3).
 
-% :- if_startup_script -> egg_go ; true.
+read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
+       with_stream_pos(InStream,show_entry(read_one_term_egg(InStream,CMD,Vs))).
+read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
+% read_one_term_egg(Stream,CMD,Vs):- catch((input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
+read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[variable_names(Vs)])),_,fail),CMD\==end_of_file,!.
+read_one_term_egg(Stream,unreadable(String),_):-catch((read_stream_to_codes(Stream,Text),string_codes(String,Text)),_,fail),!.
+read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream,Text,[]),string_codes(String,Text)),_,fail),!.
 
 
+:-export(read_each_term_egg/3).
+:-module_transparent(read_each_term_egg/3).
+
+
+
+%% read_each_term_egg( ?S, ?CMD, ?Vs) is det.
+%
+% Read Each Term Egg.
+%
+read_each_term_egg(S,CMD,Vs):-   
+  show_failure(( l_open_input(S,Stream),  
+      findall(CMD-Vs,(
+       repeat,
+       read_one_term_egg(Stream,CMD,Vs),
+       (CMD==end_of_file->!;true)),Results),!,
+  ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)))).
+
+%:- ensure_loaded(library(logicmoo/common_logic/common_logic_sexpr)).
+
+
+
+%% read_egg_term( ?S, ?CMD, ?Vs) is nondet.
+%
+% Read Each Term Egg.
+%
+:-export(read_egg_term/3).
+:-module_transparent(read_egg_term/3).
+:- use_module(library(sexpr_reader)).
+
+read_egg_term(S,CMD0,Vs0):- text_to_string(S,String),
+   split_string(String,""," \r\n\t",[SString]),
+   atom_concat(_,'.',SString),
+   open_string(SString,Stream),
+   findall(CMD0-Vs0,(
+       catch(read_term(Stream,CMD,[double_quotes(string),module(eggdrop),variable_names(Vs)]),_,fail),!,
+       ((CMD=CMD0,Vs=Vs0);
+        read_egg_term_more(Stream,CMD0,Vs0))),List),!,
+   member(CMD0-Vs0,List).
+
+read_egg_term(S,lispy(CMD),Vs):- text_to_string(S,String),
+   input_to_forms(String,CMD,Vs),!,is_list(CMD).
+
+read_egg_term_more(Stream,CMD,Vs):- 
+       repeat, 
+        catch(read_term(Stream,CMD,[double_quotes(string),module(eggdrop),variable_names(Vs)]),_,CMD==err),
+        (CMD==err->(!,fail);true),
+        (CMD==end_of_file->!;true).
+
+:- user:import(read_egg_term/3).
 
 :- module_transparent((egg_go)/0).
 :- module_transparent((egg_go_fg)/0).
