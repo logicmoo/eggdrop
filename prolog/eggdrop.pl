@@ -19,9 +19,23 @@
 
 :- set_module(class(library)).
 
+reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(PIs).
+
 :- reexport(irc_hooks).
 
-:- user:ensure_loaded(library(clpfd)).
+:- use_module(library(predicate_streams)).
+:- use_module(library(clpfd)).
+
+:- if((fail,exists_source(library(atts)))).
+:- set_prolog_flag(metaterm,true).
+:- use_module(library(atts)).
+:- endif.
+
+:- if(exists_source(library(logicmoo_utils))).
+:- use_module(library(logicmoo_utils)).
+:- endif.
+
+:- set_prolog_flag(dialect_pfc,false).
 :- '@'((
  op(1199,fx,('==>')), 
  op(1190,xfx,('::::')),
@@ -36,18 +50,6 @@
  op(350,xfx,'xor'),
  op(300,fx,'~'),
  op(300,fx,'-')),eggdrop).
-
-
-:- if((fail,exists_source(library(atts)))).
-:- set_prolog_flag(metaterm,true).
-:- use_module(library(atts)).
-:- endif.
-
-:- if(exists_source(library(logicmoo_utils))).
-:- user:use_module(library(logicmoo_utils)).
-:- endif.
-
-:- set_prolog_flag(dialect_pfc,false).
 
 :- meta_predicate
         call_in_thread(0),
@@ -99,7 +101,6 @@ egg_booting :- ignore((stream_property(S,alias(user_output)),asserta(real_user_o
 :- during_boot(egg_booting).
 
 :- my_wdmsg("HI there").
-
 
 % ===================================================================
 % IRC CONFIG
@@ -156,10 +157,9 @@ ctrl_port(3334).
  :- meta_predicate call_with_results_2(0,*).
  :- meta_predicate call_with_results_0(0,*),with_rl(0).
 
-% :- use_module(library(logicmoo/util/logicmoo_util_prolog_streams),[with_output_to_stream_pred/4]).
 
 :- module_transparent(ircEvent/3).
-% from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
+% from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util 
 % supplies locally/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
 :- ensure_loaded(library(logicmoo_utils)).
 
@@ -304,7 +304,7 @@ eggdropConnect(Host,Port,CtrlNick,Pass):-
        retractall(egg:stdio(CtrlNick,_,_)),
        asserta((egg:stdio(CtrlNick,IN,OutStream))),!.
 
-:-export(consultation_thread/2).
+:- reg_egg_builtin(consultation_thread/2).
 
 
 
@@ -368,7 +368,6 @@ consultation_codes(_BotNick,_Port,Codes):-
 
 % IRC EVENTS Bubble from here
 :- export(get2react/1).
-
 
 
 %% get2react( ?ARG1) is det.
@@ -571,7 +570,7 @@ source_and_module_for_agent(Agent,Module,CallModule):- lmconf:chat_isModule(Agen
 source_and_module_for_agent(Agent,Agent,user):- maybe_add_import_module(Agent,user,end), maybe_add_import_module(Agent,eggdrop,end).
 
 
-:-export(unreadable/1).
+:- reg_egg_builtin(unreadable/1).
 
 
 
@@ -581,7 +580,7 @@ source_and_module_for_agent(Agent,Agent,user):- maybe_add_import_module(Agent,us
 %
 unreadable(UR):-my_wdmsg(unreadable(UR)).
 
-:-export(eggdrop_bind_user_streams/0).
+:- reg_egg_builtin(eggdrop_bind_user_streams/0).
 
 
 
@@ -671,7 +670,7 @@ close_ioe(In, Out, Err) :-
 
 
 
-:-export(add_maybe_static/2).
+:- reg_egg_builtin(add_maybe_static/2).
 
 
 
@@ -687,7 +686,7 @@ add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B)
 % IRC CALL/1
 % ===================================================================
 :-module_transparent(irc_filtered/4).
-:-export(irc_filtered/4).
+:- reg_egg_builtin(irc_filtered/4).
 
 
 
@@ -720,7 +719,7 @@ is_lisp_call_functor('?>').
 
 
 :-module_transparent(ircEvent_call/4).
-:-export(ircEvent_call/4).
+:- reg_egg_builtin(ircEvent_call/4).
 
 agent_module(Agent,AgentModule):- string_to_atom(Agent,AgentModule),
    add_import_module(AgentModule,baseKB,end),
@@ -804,7 +803,7 @@ call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inhe
 %
 lmcache:vars_as(comma).
 
-:-export(flush_all_output/0).
+:- reg_egg_builtin(flush_all_output/0).
 
 
 
@@ -815,7 +814,7 @@ lmcache:vars_as(comma).
 flush_all_output:- flush_output_safe,flush_output_safe(user_error),flush_output_safe(current_error),!.
 flush_all_output:- flush_output(current_error),flush_output.
 
-:-export(vars_as_list/0).
+:- reg_egg_builtin(vars_as_list/0).
 
 
 
@@ -824,7 +823,7 @@ flush_all_output:- flush_output(current_error),flush_output.
 % Variables Converted To List.
 %
 vars_as_list :- retractall(lmcache:vars_as(_)),asserta(lmcache:vars_as(list)).
-:-export(vars_as_comma/0).
+:- reg_egg_builtin(vars_as_comma/0).
 
 
 
@@ -867,7 +866,7 @@ write_v(V):- attvar(V),if_defined(attvar_to_dict_egg(V,Dict)),writeq(Dict),!.
 write_v(V):- var(V),(var_property(V,name(EN))->write(EN);writeq(V)),!.
 write_v(V):- writeq(V).
 
-:-export(write_varvalues2/1).
+:- reg_egg_builtin(write_varvalues2/1).
 
 
 
@@ -923,7 +922,7 @@ write_varcommas3([N=V|Vs]):-format_nv(N,V), write(','),!,write_varcommas3(Vs),!.
 
 
 
-:-export(remove_anons/2).
+:- reg_egg_builtin(remove_anons/2).
 
 
 
@@ -936,7 +935,7 @@ remove_anons([N=_|Vs],VsRA):-atom_concat('_',_,N),!,remove_anons(Vs,VsRA).
 remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 
 :-module_transparent(call_with_results/2).
-:-export(call_with_results/2).
+:- reg_egg_builtin(call_with_results/2).
 
 
 
@@ -952,7 +951,7 @@ call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
     show_call(call_with_results_0(CMD,VsRA)))))),!.
 
 :-module_transparent(call_with_results_0/2).
-:-export(call_with_results_0/2).
+:- reg_egg_builtin(call_with_results_0/2).
 
 
 
@@ -971,7 +970,7 @@ call_with_results_0(CMD,Vs):-
 
 
 :-module_transparent(call_with_results_2/2).
-:-export(call_with_results_2/2).
+:- reg_egg_builtin(call_with_results_2/2).
 
 
 
@@ -986,7 +985,7 @@ call_with_results_2(CMDIN,Vs):-
 call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 
 :-module_transparent(call_with_results_3/2).
-:-export(call_with_results_3/2).
+:- reg_egg_builtin(call_with_results_3/2).
 
 
 %% call_with_results_3( :GoalCCMD, ?Vs) is det.
@@ -997,7 +996,7 @@ call_with_results_3(CCMD,Vs):-
    user:show_call(eggdrop,(CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
      (once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('% ')) ; (once(\+ \+ write_varvalues2(Vs)),N>28)))).
 
-:-export(with_output_channel/2).
+:- reg_egg_builtin(with_output_channel/2).
 :-module_transparent(with_output_channel(+,0)).
 % with_output_channel(Channel,CMD):- CMD.
 
@@ -1022,7 +1021,7 @@ with_input_channel_user(_,_,CMD):- !, with_no_input(CMD).
 with_input_channel_user(Channel,User,CMD):-
   with_input_from_predicate(last_read_from(Channel,User),CMD).
 
-:-export(with_io/1).
+:- reg_egg_builtin(with_io/1).
 :-meta_predicate(with_io(0)).
 
 
@@ -1156,9 +1155,12 @@ update_changed_files_eggdrop(Reload):-
 % ===================================================================
 % IRC OUTPUT
 % ===================================================================
-:-export(sayq/1).
+:- reg_egg_builtin(sayq/1).
 
 
+irc_connect :- call_no_cuts(call_no_cuts(irc_hooks:on_irc_connect("The eggdrop is always connected"))).
+join(ChannelName):- put_egg('.+chan ~w',[ChannelName]).
+ 
 
 %% sayq( ?D) is det.
 %
@@ -1166,7 +1168,7 @@ update_changed_files_eggdrop(Reload):-
 %
 sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
 
-:-export(say/1).
+:- reg_egg_builtin(say/1).
 
 
 
@@ -1204,7 +1206,7 @@ say(Channel,Data):-
 	once(egg:stdio(_Agent,_InStream,OutStream);current_output(OutStream)),
 	say(OutStream,Channel,Data),!.
 
-:-export(say/3).
+:- reg_egg_builtin(say/3).
 
 
 
@@ -1486,7 +1488,7 @@ egg_nogo:-thread_signal(egg_go,thread_exit(requested)).
 %
 % Read One Term Egg.
 %
-:-export(read_one_term_egg/3).
+:- reg_egg_builtin(read_one_term_egg/3).
 :-module_transparent(read_one_term_egg/3).
 
 read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
@@ -1498,7 +1500,7 @@ read_one_term_egg(Stream,unreadable(String),_):-catch((read_stream_to_codes(Stre
 read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream,Text,[]),string_codes(String,Text)),_,fail),!.
 
 
-:-export(read_each_term_egg/3).
+:- reg_egg_builtin(read_each_term_egg/3).
 :-module_transparent(read_each_term_egg/3).
 
 
@@ -1523,7 +1525,7 @@ read_each_term_egg(S,CMD,Vs):-
 %
 % Read Each Term Egg.
 %
-:-export(read_egg_term/3).
+:- reg_egg_builtin(read_egg_term/3).
 :-module_transparent(read_egg_term/3).
 :- use_module(library(sexpr_reader)).
 
@@ -1548,8 +1550,6 @@ read_egg_term_more(Stream,CMD,Vs):-
 
 :- user:import(read_egg_term/3).
 
-irc_connect :- call_no_cuts(call_no_cuts(irc_hooks:on_irc_connect("The eggdrop is always connected"))).
- 
 
 :- fixup_exports.
 
