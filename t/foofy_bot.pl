@@ -22,8 +22,9 @@ irc_hooks:on_irc_msg(_, _,"foofy"):- say("That is my name!").
                    join("#foof_fun"),
                    say("I have arrived")
                 )).
-
-:- ensure_loaded(eggdrop_fun(jokes)). 
+:- if(source_exists(eggdrop_fun(jokes)).
+:- ensure_loaded(eggdrop_fun(jokes)).
+:- endif.
 go:- irc_connect,install_hello.
 
 
