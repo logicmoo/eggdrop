@@ -1,12 +1,5 @@
-:-if(exists_source(library(logicmoo_utils))).
-:- if((multifile(baseKB:ignore_file_mpreds/1),dynamic(baseKB:ignore_file_mpreds/1), (prolog_load_context(file,F) -> ain(baseKB:ignore_file_mpreds(F)) ; true))).
-:-endif.
-:-if((multifile(baseKB:mpred_is_impl_file/1),dynamic(baseKB:mpred_is_impl_file/1),prolog_load_context(file,F),call(assert_if_new,baseKB:mpred_is_impl_file(F)))).
-:-endif.
-:- endif.
-
-:- module(eggdrop, [
-add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
+:- module(eggdrop, [egg_go_maybe/0,
+  add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
   consultation_thread/2,ctcp/6,ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,
   egg_go_fg/0,eggdropConnect/0,eggdropConnect/2,eggdropConnect/4,eggdrop_bind_user_streams/0,escape_quotes/2,flush_all_output/0,flushed_privmsg/4,
   format_nv/2,get2react/1,get_session_prefix/1,ignore_catch/1,ignored_source/1,ircEvent/3,ircEvent_call/4,irc_filtered/4,
@@ -25,6 +18,8 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
   ]).
 
 :- set_module(class(library)).
+
+:- reexport(irc_hooks).
 
 :- user:ensure_loaded(library(clpfd)).
 :- '@'((
@@ -50,7 +45,6 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
 
 :- if(exists_source(library(logicmoo_utils))).
 :- user:use_module(library(logicmoo_utils)).
-
 :- endif.
 
 :- set_prolog_flag(dialect_pfc,false).
@@ -70,24 +64,14 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_ser
         with_rl(0).
 
 
-/*:-module(eggdrop,[egg_go/0,ircEvent/3,call_with_results/2,close_ioe/3,
-         with_error_channel/2,egg_go_fg/0,
-         ignore_catch/1,
-         call_in_thread/1,
-         with_no_input/1,
-         with_output_channel/2,
-         with_error_channel/2,
-         with_input_channel_user/3,
-         say_prefixed/3,
-         say/1,
-   lmconf:chat_isRegistered/3]).*/
-
-
 %% my_wdmsg( ?Msg) is det.
 %
 % My Wdmsg.
 %
 my_wdmsg(Msg):- notrace(my_wdmsg0(Msg)).
+
+:- dynamic(real_user_output/1).
+:- volatile(real_user_output/1).
 
 my_wdmsg0(List):-is_list(List),catch(text_to_string(List,CMD),_,fail),List\==CMD,!,my_wdmsg(CMD).
 my_wdmsg0(Msg):- if_defined(real_user_output(S)),!,my_wdmsg(S,Msg).
@@ -98,16 +82,8 @@ my_wdmsg0(Msg):- debugm(Msg).
 my_wdmsg(S,Msg):- string(Msg),format(S,'~N% ~w~N',[Msg]),flush_output_safe(S),!.
 my_wdmsg(S,Msg):- format(S,'~N% ~q.~n',[Msg]),flush_output_safe(S),!.
 
-:- dynamic(lmconf:chat_isWith/2).
-:- thread_local(t_l:(disable_px)).
-
-:- my_wdmsg("HI there").
-
-
 :-dynamic(lmconf:chat_isWith/2).
 :- thread_local(t_l:(disable_px)).
-
-:- my_wdmsg("HI there").
 
 egg_to_string(A,S):- notrace(egg_to_string0(A,S)).
 egg_to_string0(A,S):- var(A),!,trace_or_throw(var_egg_to_string(A,S)).
@@ -115,14 +91,15 @@ egg_to_string0(A,S):- on_x_fail(text_to_string(A,S)),!.
 egg_to_string0([A],S):- on_x_fail(atom_string(A,S)),!.
 egg_to_string0(A,S):- on_x_fail(atom_string(A,S)),!.
 
-:- dynamic(real_user_output/1).
-:- volatile(real_user_output/1).
 egg_booting :- source_file_property(reloading, true) ,!.
 egg_booting :- thread_self(M), M \== main,!.
 egg_booting :- ignore((stream_property(S,alias(user_output)),asserta(real_user_output(S)),set_stream(S,alias(main_user_output)))),
    ignore(( stream_property(S,alias(user_error)),asserta(real_user_output(S)),!,set_stream(S,alias(main_user_error)))).
 
 :- during_boot(egg_booting).
+
+:- my_wdmsg("HI there").
+
 
 % ===================================================================
 % IRC CONFIG
@@ -175,7 +152,6 @@ ctrl_port(3334).
 :- endif.
 
 
-
  :- meta_predicate call_with_results_3(0,*).
  :- meta_predicate call_with_results_2(0,*).
  :- meta_predicate call_with_results_0(0,*),with_rl(0).
@@ -186,11 +162,7 @@ ctrl_port(3334).
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util
 % supplies locally/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
 :- ensure_loaded(library(logicmoo_utils)).
-% :- use_module(library(resource_bounds)).
-/*
-my_wdmsg(List):-is_list(List),text_to_string(List,CMD),!,format(current_error,'~q~n',[CMD]),flush_output(current_error),!.
-my_wdmsg(CMD):-format(current_error,'~q~n',[CMD]),flush_output(current_error),!.
-*/
+
 /*
 TODO
 
@@ -423,6 +395,8 @@ chon(W,N):- nop(chon(_,W,N)).
 part(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,part(USER, HOSTMASK,TYPE,DEST,MESSAGE)).
 
 
+evnt(Str):- call_no_cuts(irc_hooks:on_irc_connect(Str)).
+
 
 %% join( ?USER, ?HOSTMASK, ?TYPE, ?DEST) is det.
 %
@@ -514,18 +488,18 @@ ignored_source(From):-
 
 :-dynamic(lmconf:chat_isChannelUserAct/4).
 :-dynamic(ignored_channel/1).
-:-dynamic(user:irc_event_hooks/3).
-:-multifile(user:irc_event_hooks/3).
+:-dynamic(irc_hooks:on_irc_msg/3).
+:-multifile(irc_hooks:on_irc_msg/3).
 
 
 
 
-%% user:irc_event_hooks( ?Channel, ?User, ?Stuff) is det.
+%% irc_hooks:on_irc_msg( ?Channel, ?User, ?Stuff) is det.
 %
-% Hook To [user:irc_event_hooks/3] For Module Eggdrop.
+% Hook To [irc_hooks:on_irc_msg/3] For Module Eggdrop.
 % Irc Event Hooks.
 %
-user:irc_event_hooks(_Channel,_User,_Stuff):-fail.
+irc_hooks:on_irc_msg(_Channel,_User,_Stuff):-fail.
 
 
 
@@ -564,7 +538,7 @@ ircEvent(Channel,Agent,say(W)):- fail,
 		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
 
 
-ircEvent(Channel,Agent,Event):- once(doall(call_no_cuts(user:irc_event_hooks(Channel,Agent,Event)))),fail.
+ircEvent(Channel,Agent,Event):- once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
 
 
 % Say -> Call
@@ -1013,7 +987,6 @@ call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 
 :-module_transparent(call_with_results_3/2).
 :-export(call_with_results_3/2).
-
 
 
 %% call_with_results_3( :GoalCCMD, ?Vs) is det.
@@ -1494,6 +1467,8 @@ egg_go_fg:-
 %
 
 % egg_go:- egg_go_fg,!.
+egg_go_maybe:- current_prolog_flag(os_argv,List),( member('--noegg',List); member('--noirc',List)),!.
+egg_go_maybe:- egg_go. 
 egg_go:- thread_property(R,status(running)),R == egg_go,!.
 egg_go:- thread_property(_,alias(egg_go)),threads,fail.
 egg_go:- thread_create(egg_go_fg,_,[alias(egg_go),detached(true),an_exit(show_thread_exit)]).
@@ -1573,94 +1548,10 @@ read_egg_term_more(Stream,CMD,Vs):-
 
 :- user:import(read_egg_term/3).
 
-:- module_transparent((egg_go)/0).
-:- module_transparent((egg_go_fg)/0).
-:- module_transparent((show_thread_exit)/0).
-:- module_transparent((list_replace_egg)/4).
-:- module_transparent((escape_quotes)/2).
-:- module_transparent((to_egg)/2).
-:- module_transparent((to_egg)/1).
-:- module_transparent((check_put_server_count)/1).
-:- module_transparent((is_empty)/1).
-:- module_transparent((get_session_prefix)/1).
-:- module_transparent((say)/3).
-:- module_transparent((say)/2).
-:- module_transparent((say)/1).
-:- module_transparent((sayq)/1).
-:- module_transparent((update_changed_files_eggdrop)/0).
-:- module_transparent((read_codes_and_send)/2).
-:- module_transparent((read_from_agent_and_send)/2).
-:- module_transparent((remove_anons)/2).
-:- module_transparent((write_varcommas3)/1).
-:- module_transparent((write_varcommas2)/1).
-:- module_transparent((write_varvalues3)/1).
-:- module_transparent((write_varvalues2)/1).
-:- module_transparent((format_nv)/2).
-:- module_transparent((vars_as_comma)/0).
-:- module_transparent((vars_as_list)/0).
-:- module_transparent((flush_all_output)/0).
-:- module_transparent((cit3)/0).
-:- module_transparent((cit2)/0).
-:- module_transparent((cit)/0).
-:- module_transparent((is_lisp_call_functor)/1).
-:- module_transparent((add_maybe_static)/2).
-:- module_transparent((close_ioe)/3).
-:- module_transparent((eggdrop_bind_user_streams)/0).
-:- module_transparent((unreadable)/1).
-:- module_transparent((recordlast)/3).
-:- module_transparent((ignored_channel)/1).
-:- module_transparent((ignored_source)/1).
-:- module_transparent((last_read_from)/3).
-:- module_transparent((irc_receive)/5).
-:- module_transparent((pubm)/5).
-:- module_transparent((ctcp)/6).
-:- module_transparent((msgm)/5).
-:- module_transparent((join)/4).
-:- module_transparent((part)/5).
-:- module_transparent((get2react)/1).
-:- module_transparent((consultation_codes)/3).
-:- module_transparent((is_callable_egg)/1).
-:- module_transparent((consultation_thread)/2).
-:- module_transparent((eggdropConnect)/4).
-:- module_transparent((eggdropConnect)/2).
-:- module_transparent((eggdropConnect)/0).
-:- module_transparent((deregister_unsafe_preds)/0).
-:- module_transparent((remove_pred_egg)/3).
-:- module_transparent((unsafe_preds_egg)/3).
-:- module_transparent((my_wdmsg)/1).
-:- module_transparent((ctrl_port)/1).
-:- module_transparent((ctrl_pass)/1).
-:- module_transparent((ctrl_nick)/1).
-:- module_transparent((ctrl_server)/1).
-:- module_transparent((bot_nick)/1).
-:- module_transparent((write_v)/1).
-:- module_transparent((source_and_module_for_agent)/3).
-:- module_transparent((with_rl)/1).
-:- module_transparent((with_no_input)/1).
-:- module_transparent((with_io)/1).
-:- module_transparent((with_input_channel_user)/3).
-:- module_transparent((with_error_to_output)/1).
-:- module_transparent((ignore_catch)/1).
-:- module_transparent((call_in_thread)/1).
+irc_connect :- call_no_cuts(call_no_cuts(irc_hooks:on_irc_connect("The eggdrop is always connected"))).
+ 
 
-
-:- ignore((source_location(S,_),prolog_load_context(module,M),module_property(M,class(library)),
- forall(source_file(M:H,S),
- ignore((functor(H,F,A),
-  ignore(((\+ atom_concat('$',_,F),(export(F/A) , current_predicate(system:F/A)->true; system:import(M:F/A))))),
-  ignore(((\+ predicate_property(M:H,transparent), module_transparent(M:F/A), \+ atom_concat('__aux',_,F),debug(modules,'~N:- module_transparent((~q)/~q).~n',[F,A]))))))))).
-
-
-:- source_location(S,_),prolog_load_context(module,M),
- forall(source_file(M:H,S),ignore((functor(H,F,A),
-   nop((\+ mpred_database_term(F,A,_))),
-   F\=='$mode',
-   F\=='$pldoc',
-   ignore(((\+ atom_concat('$',_,F),export(F/A)))),
-   \+ predicate_property(M:H,transparent),
-   ignore(((\+ atom_concat('__aux',_,F),format('~N:- module_transparent((~q)/~q).~n',[F,A])))),
-   M:multifile(M:F/A),
-   M:module_transparent(M:F/A)))).
+:- fixup_exports.
 
 % :- ircEvent("dmiles","dmiles",say("(?- (a b c))")).
 
