@@ -23,8 +23,8 @@
 :- discontiguous(on_irc_connect/1).
 
 % arity 1
-reg_irc_hook(M:(H:-B)):- assert(irc_hooks:H  :-  M:B).
+reg_irc_hook(M:(H:-B)):- ain(irc_hooks:H  :-  M:B).
 
 % arity 2 version
-reg_irc_hook(Name,M:Body):- assert(irc_hooks:Name  :-  M:Body).
+reg_irc_hook(Name,M:Body):- ain(irc_hooks:Name  :-  M:Body).
 

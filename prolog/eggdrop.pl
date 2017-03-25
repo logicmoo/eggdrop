@@ -19,6 +19,7 @@
 
 :- set_module(class(library)).
 
+:- dynamic(lmconf:irc_bot_nick/1).
 reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(PIs).
 
 :- reexport(irc_hooks).
@@ -316,7 +317,7 @@ consultation_thread(CtrlNick,Port):-
       eggdropConnect(CtrlNick,Port),
       to_egg('.echo off\n'),
       to_egg('.console ~w ""\n',[CtrlNick]),
-      must(bot_nick(PrologMUDNick)),
+      must(lmconf:irc_bot_nick(PrologMUDNick)),
       to_egg('.set nick ~w\n',[PrologMUDNick]),
       must(egg:stdio(CtrlNick,IN,_)),!,
       % loop
@@ -483,7 +484,7 @@ ignored_source(From):-not(string(From)),!,text_to_string(From,String),!,ignored_
 ignored_source(From):- atom(From),atom_length(From,1).
 % from the process or bot
 ignored_source(From):-
- bot_nick(BotNick),ctrl_nick(CtrlNick),arg(_,vv(BotNick,CtrlNick),Ignore),atom_contains(From,Ignore),!.
+ lmconf:irc_bot_nick(BotNick),ctrl_nick(CtrlNick),arg(_,vv(BotNick,CtrlNick),Ignore),atom_contains(From,Ignore),!.
 
 :-dynamic(lmconf:chat_isChannelUserAct/4).
 :-dynamic(ignored_channel/1).
@@ -498,6 +499,7 @@ ignored_source(From):-
 % Hook To [irc_hooks:on_irc_msg/3] For Module Eggdrop.
 % Irc Event Hooks.
 %
+
 irc_hooks:on_irc_msg(_Channel,_User,_Stuff):-fail.
 
 
@@ -537,7 +539,9 @@ ircEvent(Channel,Agent,say(W)):- fail,
 		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
 
 
-ircEvent(Channel,Agent,Event):- once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
+                % irc_hooks:on_irc_msg(C,A,say(T)):-!,irc_hooks:on_irc_msg(T).
+ircEvent(Channel,Agent,Event):- say(_) \= Event, once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
+ircEvent(Channel,Agent,say(Event)):- once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
 
 
 % Say -> Call
@@ -1159,11 +1163,11 @@ update_changed_files_eggdrop(Reload):-
 irc_action(IDEA):- say([':ACTION ',IDEA]).
 
 set_irc_nick(Nick):- text_to_string(Nick,SNick),to_egg('.set botnick ~s\n',[SNick]),
-  retractall(bot_nick(_)),asserta(bot_nick(SNick)).
+  retractall(lmconf:irc_bot_nick(_)),asserta(lmconf:irc_bot_nick(SNick)).
 
 set_irc_serv(NamePort):- to_egg('.jump ~w\n',[NamePort]).
 
-irc_connect :- call_no_cuts(call_no_cuts(irc_hooks:on_irc_connect("The eggdrop is always connected"))).
+irc_connect :- egg_go,call_no_cuts(call_no_cuts(irc_hooks:on_irc_connect("The eggdrop is always connected"))).
 
 join(ChannelName):- put_egg('.+chan ~w',[ChannelName]).
  
@@ -1562,4 +1566,6 @@ read_egg_term_more(Stream,CMD,Vs):-
 :- fixup_exports.
 
 % :- ircEvent("dmiles","dmiles",say("(?- (a b c))")).
+
+:- bot_nick(Nick),set_irc_nick(Nick).
 
