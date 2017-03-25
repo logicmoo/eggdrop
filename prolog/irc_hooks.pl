@@ -15,7 +15,6 @@
 :- discontigous(on_irc_connect/1).
 
 % arity 1
-
 reg_irc_hook(M:(H:-B)):- assert(irc_hooks:H  :-  M:B).
 
 % arity 2 version
