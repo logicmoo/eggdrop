@@ -1153,29 +1153,37 @@ update_changed_files_eggdrop(Reload):-
 
 
 % ===================================================================
-% IRC OUTPUT
+% IRC PERFORM
 % ===================================================================
-:- reg_egg_builtin(sayq/1).
 
+irc_action(IDEA):- say([':ACTION ',IDEA]).
+
+set_irc_nick(Nick):- text_to_string(Nick,SNick),to_egg('.set botnick ~s\n',[SNick]),
+  retractall(bot_nick(_)),asserta(bot_nick(SNick)).
+
+set_irc_serv(NamePort):- to_egg('.jump ~w\n',[NamePort]).
 
 irc_connect :- call_no_cuts(call_no_cuts(irc_hooks:on_irc_connect("The eggdrop is always connected"))).
+
 join(ChannelName):- put_egg('.+chan ~w',[ChannelName]).
  
+% ===================================================================
+% IRC OUTPUT
+% ===================================================================
 
 %% sayq( ?D) is det.
 %
 % Sayq.
 %
+:- reg_egg_builtin(sayq/1).
 sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
-
-:- reg_egg_builtin(say/1).
-
 
 
 %% say( ?D) is det.
 %
 % Say.
 %
+:- reg_egg_builtin(say/1).
 say(D):- t_l:default_channel(C),say(C,D),!.
 say(D):- say("#logicmoo",D),!.
 

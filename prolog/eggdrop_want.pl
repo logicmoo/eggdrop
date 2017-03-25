@@ -324,9 +324,6 @@ eggdropConnect(Host,Port,CtrlNick,Pass):-
 
 :-export(consultation_thread/2).
 
-set_irc_nick(Nick):- to_egg('.set nick ~w\n',[Nick]),
-set_irc_serv(NamePort):- to_egg('.jump ~w\n',[NamePort]),
-
 %% consultation_thread( ?CtrlNick, ?Port) is det.
 %
 % Consultation Thread.
