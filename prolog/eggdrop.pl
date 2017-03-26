@@ -19,13 +19,18 @@
 
 :- set_module(class(library)).
 
+:- kb_shared(rdf_rewrite:arity/2).
+:- kb_shared(baseKB:prologBuiltin/1).
+:- kb_shared(baseKB:rtVerbatumArgs/1).
+
 :- dynamic(lmconf:irc_bot_nick/1).
+lmconf:irc_bot_nick("PrologMUD").
 reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(PIs).
 
 :- reexport(irc_hooks).
 
-:- use_module(library(predicate_streams)).
-:- use_module(library(clpfd)).
+:- system:use_module(library(predicate_streams)).
+:- user:use_module(library(clpfd)).
 
 :- if((fail,exists_source(library(atts)))).
 :- set_prolog_flag(metaterm,true).
@@ -33,7 +38,7 @@ reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(P
 :- endif.
 
 :- if(exists_source(library(logicmoo_utils))).
-:- use_module(library(logicmoo_utils)).
+:- system:use_module(library(logicmoo_utils)).
 :- endif.
 
 :- set_prolog_flag(dialect_pfc,false).
@@ -162,7 +167,7 @@ ctrl_port(3334).
 :- module_transparent(ircEvent/3).
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util 
 % supplies locally/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
-:- ensure_loaded(library(logicmoo_utils)).
+:- system:ensure_loaded(library(logicmoo_utils)).
 
 /*
 TODO
@@ -226,7 +231,7 @@ unsafe_preds_egg(M,F,A):-M=system,member(F,[shell,halt]),current_predicate(M:F/A
 remove_pred_egg(_,F,A):-member(_:F/A,[_:delete_common_prefix/4]),!.
 remove_pred_egg(M,F,A):- functor(P,F,A),
   (current_predicate(M:F/A) -> ignore((catch(redefine_system_predicate(M:P),_,true),abolish(M:F,A)));true),
-  M:asserta((P:-(my_wdmsg(error(call(P))),throw(permission_error(M:F/A))))).
+  M:asserta((P:- (my_wdmsg(error(call(P))),throw(permission_error(M:F/A))))).
 
 % :-use_module(library(uid)).
 % only if root
@@ -240,7 +245,7 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 
 % deregister_unsafe_preds:-!.
 deregister_unsafe_preds:- current_predicate(system:kill_unsafe_preds/0),!.
-deregister_unsafe_preds:- if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
+deregister_unsafe_preds:- if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),whenever(run_network,remove_pred_egg(M,F,A))).
 deregister_unsafe_preds:-!.
 
 % [Optionaly] Solve the Halting problem
@@ -790,7 +795,7 @@ cit3:- get_time(HH), writeln(current_error,HH).
 % Call In Thread.
 %
 call_in_thread(CMD):- thread_self(main),!,CMD.
-% call_in_thread(CMD):- !,CMD.
+call_in_thread(CMD):- !,CMD.
 call_in_thread(CMD):- thread_create(CMD,_,[detached(true)]).
 call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
 
@@ -1567,5 +1572,5 @@ read_egg_term_more(Stream,CMD,Vs):-
 
 % :- ircEvent("dmiles","dmiles",say("(?- (a b c))")).
 
-:- bot_nick(Nick),set_irc_nick(Nick).
+% :- bot_nick(Nick),set_irc_nick(Nick).
 
