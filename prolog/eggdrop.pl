@@ -814,6 +814,7 @@ in_threaded_engine_loop :-
         logtalk:threaded_engine_yield(result(Task)),
 	in_threaded_engine_loop.
 
+ensure_threaded_engine_loop:- \+ current_predicate(current_logtalk_flag/2),!.
 ensure_threaded_engine_loop:- logtalk:threaded_engine(looped_threaded_engine_worker),!.
 ensure_threaded_engine_loop:- logtalk:threaded_engine_create(none, in_threaded_engine_loop, looped_threaded_engine_worker).
 :- multifile(logtalk:'$lgt_current_engine_'/4).
