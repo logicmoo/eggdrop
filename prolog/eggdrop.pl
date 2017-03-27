@@ -1,5 +1,5 @@
 :- module(eggdrop, [egg_go_maybe/0,
-  add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
+  add_maybe_static/2,bot_nick/1,call_in_thread/2,call_with_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
   consultation_thread/2,ctcp/6,ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,
   egg_go_fg/0,eggdropConnect/0,eggdropConnect/2,eggdropConnect/4,eggdrop_bind_user_streams/0,escape_quotes/2,flush_all_output/0,flushed_privmsg/4,
   format_nv/2,get2react/1,get_session_prefix/1,ignore_catch/1,ignored_source/1,ircEvent/3,ircEvent_call/4,irc_filtered/4,
@@ -58,7 +58,7 @@ reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(P
  op(300,fx,'-')),eggdrop).
 
 :- meta_predicate
-        call_in_thread(0),
+        call_in_thread(+,0),
         call_with_results_0(0, ?),
         call_with_results_2(0, ?),
         call_with_results_3(0, ?),
@@ -146,7 +146,7 @@ ctrl_nick("swipl").
 %
 % Ctrl Pass.
 %
-ctrl_pass("top5ecret").
+ctrl_pass("logicmoo").
 
 
 
@@ -444,7 +444,9 @@ pubm(USER, HOSTMASK,TYPE,DEST,MESSAGE):- irc_receive(USER, HOSTMASK,TYPE,DEST,sa
 irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
  my_wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
    string_to_atom(USER,ID),
-   (call_in_thread((
+   string_to_atom(DEST,DESTID),
+   (call_in_thread(DESTID,
+    (
      locally([
        t_l:put_server_count(0),
        t_l:default_channel(DEST),
@@ -624,7 +626,7 @@ eggdrop_bind_user_streams :-
 
 :- meta_predicate with_error_channel(+,0).
 :- meta_predicate ignore_catch(0).
-:- meta_predicate call_in_thread(0).
+:- meta_predicate call_in_thread(+, 0).
 :- meta_predicate with_no_input(0).
 :- meta_predicate with_output_channel(+,0).
 :- meta_predicate with_input_channel_user(+,+,0).
@@ -767,7 +769,7 @@ ircEvent_call(Channel,Agent,Query,Bindings):-
 %
 % Cit.
 %
-cit:- get_time(HH), call_in_thread(with_error_channel(dmiles:err,writeln(current_error,HH))).
+cit:- get_time(HH), call_in_thread(dmiles,with_error_channel(dmiles:err,writeln(current_error,HH))).
 
 
 
@@ -790,20 +792,33 @@ cit3:- get_time(HH), writeln(current_error,HH).
 
 
 
-%% call_in_thread( :Call) is det.
+%% call_in_thread(+ID, :Call) is det.
 %
 % Call In Thread.
 %
-call_in_thread(CMD):- thread_self(main),!,CMD.
-call_in_thread(CMD):- !,CMD.
-call_in_thread(CMD):- thread_create(CMD,_,[detached(true)]).
-call_in_thread(CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
 
+call_in_thread(_ ,CMD):- thread_self(main),!,CMD.
+% call_in_thread(ID,CMD):- !,in_threaded_engine(ID,CMD).
+call_in_thread(_ ,CMD):- !,CMD.
+call_in_thread(_ ,CMD):- thread_create(CMD,_,[detached(true)]).
+call_in_thread(_,CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
+
+in_threaded_engine(ID,CMD):- logtalk:threaded_engine_create(CMD,CMD,ID),threaded_engine_next(ID,CMD).
 
 :- dynamic(lmcache:vars_as/1).
 % :- thread_local lmcache:vars_as/1.
 
+in_threaded_engine_loop :-
+	logtalk:threaded_engine_fetch(Task),
+	call(Task),
+        logtalk:threaded_engine_yield(result(Task)),
+	in_threaded_engine_loop.
 
+ensure_threaded_engine_loop:- logtalk:threaded_engine(looped_threaded_engine_worker),!.
+ensure_threaded_engine_loop:- logtalk:threaded_engine_create(none, in_threaded_engine_loop, looped_threaded_engine_worker).
+:- multifile(logtalk:'$lgt_current_engine_'/4).
+:- volatile(logtalk:'$lgt_current_engine_'/4).
+:- during_boot(ensure_threaded_engine_loop).
 
 %% vars_as( ?VarType) is det.
 %
@@ -897,7 +912,7 @@ write_varvalues2(Vs):-
 writeqln(G):-writeq(G),write(' ').
 
 write_goals([]):-!.
-write_goals(List):-write_goals0(List),!,write(' ').
+write_goals(List):- write('\n%    Residual Goals: '),write_goals0(List),!,write(' ').
 write_goals0([G|Rest]):-write(' '),writeq(G),write_goals(Rest).
 write_goals0([]).
 
@@ -1216,6 +1231,9 @@ say_prefixed(Agent,Prefix,Out):-sformat(SF,'~w: ~p',[Prefix,Out]), say(Agent,SF)
 %
 % Say.
 %
+say(Channel,Data):-var(Data),!,
+  	once(egg:stdio(_Agent,_InStream,OutStream);current_output(OutStream)),
+	say(OutStream,Channel,Data),!.
 say(Channel,[Channel,': '|Data]):-nonvar(Data),say(Channel,Data),!.
 %say(C:C,Text):-nonvar(C),!,say(C,Text).
 %say(C:A,Text):-!,say_prefixed(C,A,Text).
@@ -1234,6 +1252,7 @@ say(Channel,Data):-
 say(_,NonList,Data):-is_stream(NonList),!,say(NonList,"console",Data),!.
 
 %say(_OutStream,Channel,Text):- my_wdmsg(will_say(Channel,Text)),fail.
+say(OutStream,NonList,Data):- var(Data),!,sformat(String,'~p',[Data]),say(OutStream,NonList,String).
 say(OutStream,NonList,Data):- \+(is_list(NonList)),text_to_string_safe(NonList, S),string_codes(S,Codes),!,say(OutStream,Codes,Data),!.
 say(OutStream,Channel,Text):-
    egg_to_string(Text,Data),

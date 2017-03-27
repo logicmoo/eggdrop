@@ -933,8 +933,23 @@ write_v(V):- writeq(V).
 %
 % Write Varvalues Extended Helper.
 %
-write_varvalues2(Vs):-lmcache:vars_as(comma),!,write_varcommas2(Vs).
-write_varvalues2(Vs):-write('['),copy_term(Vs,CVs),numbervars(CVs,6667,_,[singletons(true),attvar(skip)]),write_varvalues3(CVs).
+% write_varvalues2(Vs):-lmcache:vars_as(comma),!,write_varcommas2(Vs),write_residuals(Vs).
+
+write_varvalues2([]):-!,flush_all_output.
+write_varvalues2(Vs):-
+   flush_all_output,
+   write('% '),
+   copy_term(Vs,Vs,Goals),
+   write_varvalues3(Vs),
+   write_goals(Goals),!,
+   flush_all_output.
+
+writeqln(G):-writeq(G),write(' ').
+
+write_goals([]):-!.
+write_goals(List):- write('  Goals: '),write_goals0(List),!,write(' ').
+write_goals0([G|Rest]):-write(' '),writeq(G),write_goals(Rest).
+write_goals0([]).
 
 
 
