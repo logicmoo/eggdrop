@@ -78,11 +78,11 @@ reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(P
 %
 my_wdmsg(Msg):- notrace(my_wdmsg0(Msg)).
 
-:- dynamic(real_user_output/1).
-:- volatile(real_user_output/1).
+:- dynamic(lmcache:real_user_output/1).
+:- volatile(lmcache:real_user_output/1).
 
 my_wdmsg0(List):-is_list(List),catch(text_to_string(List,CMD),_,fail),List\==CMD,!,my_wdmsg(CMD).
-my_wdmsg0(Msg):- if_defined(real_user_output(S)),!,my_wdmsg(S,Msg).
+my_wdmsg0(Msg):- if_defined(lmcache:real_user_output(S)),!,my_wdmsg(S,Msg).
 my_wdmsg0(Msg):- stream_property(_,alias(main_user_error)),!,my_wdmsg(main_user_error,Msg).
 my_wdmsg0(Msg):- get_main_error_stream(ERR),!,my_wdmsg(ERR,Msg).
 my_wdmsg0(Msg):- debugm(Msg).
@@ -101,8 +101,8 @@ egg_to_string0(A,S):- on_x_fail(atom_string(A,S)),!.
 
 egg_booting :- source_file_property(reloading, true) ,!.
 egg_booting :- thread_self(M), M \== main,!.
-egg_booting :- ignore((stream_property(S,alias(user_output)),asserta(real_user_output(S)),set_stream(S,alias(main_user_output)))),
-   ignore(( stream_property(S,alias(user_error)),asserta(real_user_output(S)),!,set_stream(S,alias(main_user_error)))).
+egg_booting :- ignore((stream_property(S,alias(user_output)),asserta(lmcache:real_user_output(S)),set_stream(S,alias(main_user_output)))),
+   ignore(( stream_property(S,alias(user_error)),asserta(lmcache:real_user_output(S)),!,set_stream(S,alias(main_user_error)))).
 
 :- during_boot(egg_booting).
 
