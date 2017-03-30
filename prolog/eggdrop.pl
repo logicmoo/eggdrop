@@ -711,15 +711,18 @@ irc_filtered(_Channel,_Agent,(H :- B ),Vs):- add_maybe_static((H :- B),Vs),!.
 irc_filtered(Channel,Agent,((=>(H)) :- B ),Vs):-
   ((=>(H :- B)) \== ((=>(H)) :- B )),!,irc_filtered(Channel,Agent,(=>(H :- B)),Vs).
 irc_filtered(Channel,Agent,'?-'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
-irc_filtered(Channel,Agent,'=>'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,ain(CALL),Vs),!.
+
+irc_filtered(Channel,Agent,AIN,Vs):- is_ained(AIN),ircEvent_call(Channel,Agent,ain_expanded(AIN),Vs),!.
 irc_filtered(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_call_functor(S),!,
    (current_predicate(lisp_call/3) -> ircEvent_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
      my_wdmsg(cant_ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs))).
 irc_filtered(Channel,Agent,CALL,Vs):- lmconf:chat_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
 irc_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!.
 
-
-
+is_ained(AIN):- \+ compound(AIN),!,fail.
+is_ained(==>(_,_)).
+is_ained(=>(_,_)).
+is_ained(==>(_)).
 
 %% is_lisp_call_functor( ?FUNCTOR) is det.
 %
