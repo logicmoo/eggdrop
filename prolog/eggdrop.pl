@@ -130,7 +130,7 @@ bot_nick("PrologMUD").
 %
 % Ctrl Server.
 %
-ctrl_server(localhost).
+ctrl_server('10.0.0.247').
 
 
 
@@ -566,7 +566,7 @@ ircEvent(Channel,Agent,call(CALL,Vs)):-
  with_dmsg_to_main((
   thread_self(Self),tnodebug(Self),
   use_agent_module(Agent),!,
-  notrace(irc_filtered(Channel,Agent,CALL,Vs)),
+  notrace(loop_check(irc_filtered(Channel,Agent,CALL,Vs))),
   save_agent_module(Agent))),!.
 
 ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
@@ -760,10 +760,12 @@ ircEvent_call(Channel,Agent,Query,Bindings):-
      with_error_channel(Channel,
        (nop((stream_property(X,alias(current_output)),set_stream(X,alias(user_output)))),
          with_no_input((
-          AgentModule:catch(call_with_results(Goal,ExpandedBindings),E,(((my_wdmsg(E),say(Agent,[Channel,': ',E])),!,fail)))))))),!.
+          AgentModule:catch(call_with_results(Goal,ExpandedBindings),E,
+          (((my_wdmsg(E),say(Agent,[Channel,': ',E])),!,fail)))))))),!.
 
+  
 
-
+is_in_egg:- \+ thread_self(main).
 
 %% cit is det.
 %
@@ -1003,10 +1005,11 @@ call_with_results_0(CMD,Vs):-
 %
 % call Using results  Extended Helper.
 %
-call_with_results_2(CMDIN,Vs):-
+call_with_results_2(CMDIN0,Vs):-
+  strip_module(CMDIN0,M,CMDIN),
    CMDIN = CMD,functor_h(CMD,F,A),A2 is A+1,CMD=..[F|ARGS],atom_concat(F,'_with_vars',FF),
-   (current_predicate(FF/A2)-> (CMDWV=..[FF|ARGS],append_term(CMDWV,Vs,CCMD)); CCMD=CMD),!,
-   call_with_results_3(CCMD,Vs).
+   (M:current_predicate(FF/A2)-> (CMDWV=..[FF|ARGS],append_term(CMDWV,Vs,CCMD)); CCMD=CMD),!,
+   call_with_results_3(M:CCMD,Vs).
 call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
 
 :-module_transparent(call_with_results_3/2).
@@ -1031,9 +1034,9 @@ call_with_results_3(CCMD,Vs):-
 %
 % Using Output Channel.
 %
-with_output_channel(Channel,CMD):-
+with_output_channel(_Channel,CMD):- \+ is_in_egg,!,call(CMD).
+with_output_channel(Channel,CMD):- 
   with_output_to_predicate(say(Channel),CMD).
-
 
 
 
@@ -1042,6 +1045,7 @@ with_output_channel(Channel,CMD):-
 %
 % Using Input Channel User.
 %
+with_input_channel_user(_,_,CMD):- \+ is_in_egg,!,call(CMD).
 with_input_channel_user(_,_,CMD):- !, with_no_input(CMD).
 with_input_channel_user(Channel,User,CMD):-
   with_input_from_predicate(last_read_from(Channel,User),CMD).
@@ -1055,6 +1059,7 @@ with_input_channel_user(Channel,User,CMD):-
 %
 % Using Input/output.
 %
+with_io(CMD):- \+ is_in_egg,!,call(CMD).
 with_io(CMD):-
  with_dmsg_to_main((
   current_input(IN),current_output(OUT),get_thread_current_error(Err),
@@ -1106,6 +1111,8 @@ with_error_to_output(CMD):-
 %
 % Using Error Channel.
 %
+
+with_error_channel(_Agent, CMD):-  \+ is_in_egg,!,call(CMD).
 /*
 with_error_channel(_Agent, CMD):-  !, CMD.
 with_error_channel(Agent,CMD):- fail,
