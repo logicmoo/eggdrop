@@ -19,7 +19,12 @@
 
 :- set_module(class(library)).
 
+:- if(current_module(rdf_rewrite)).
 :- kb_shared(rdf_rewrite:arity/2).
+:- else.
+:- kb_shared(baseKB:arity/2).
+:- endif.
+
 :- kb_shared(baseKB:prologBuiltin/1).
 :- kb_shared(baseKB:rtVerbatumArgs/1).
 
@@ -41,7 +46,7 @@ reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(P
 :- system:use_module(library(logicmoo_utils)).
 :- endif.
 
-:- set_prolog_flag(dialect_pfc,false).
+:- set_prolog_flag(dialect_pfc,cwc).
 :- '@'((
  op(1199,fx,('==>')), 
  op(1190,xfx,('::::')),
