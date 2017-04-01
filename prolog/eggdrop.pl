@@ -22,7 +22,7 @@
 :- if(current_module(rdf_rewrite)).
 :- kb_shared(rdf_rewrite:arity/2).
 :- else.
-:- kb_shared(baseKB:arity/2).
+:- kb_shared(rdf_rewrite:arity/2).
 :- endif.
 
 :- kb_shared(baseKB:prologBuiltin/1).
