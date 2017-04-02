@@ -248,8 +248,8 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 % Deregister Unsafe Predicates.
 %
 
-% deregister_unsafe_preds:-!.
 deregister_unsafe_preds:- current_predicate(system:kill_unsafe_preds/0),!.
+deregister_unsafe_preds:-!.
 deregister_unsafe_preds:- if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),whenever(run_network,remove_pred_egg(M,F,A))).
 deregister_unsafe_preds:-!.
 
@@ -1521,7 +1521,10 @@ egg_go_fg:-
 %
 
 % egg_go:- egg_go_fg,!.
-egg_go_maybe:- current_prolog_flag(os_argv,List),( member('--noegg',List); member('--noirc',List)),!.
+
+egg_go_maybe:- app_argv('--noirc'),!.
+egg_go_maybe:- app_argv('--nonet'),!.
+egg_go_maybe:- \+ app_argv('--irc'), \+ app_argv('--all'),!.
 egg_go_maybe:- egg_go. 
 egg_go:- thread_property(R,status(running)),R == egg_go,!.
 egg_go:- thread_property(_,alias(egg_go)),threads,fail.

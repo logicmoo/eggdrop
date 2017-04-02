@@ -247,7 +247,7 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 % Deregister Unsafe Predicates.
 %
 
-% deregister_unsafe_preds:-!.
+deregister_unsafe_preds:-!.
 deregister_unsafe_preds:- current_predicate(system:kill_unsafe_preds/0),!.
 deregister_unsafe_preds:- if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),remove_pred_egg(M,F,A)).
 deregister_unsafe_preds:-!.
