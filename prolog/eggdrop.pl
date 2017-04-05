@@ -827,8 +827,16 @@ in_threaded_engine_loop :-
 ensure_threaded_engine_loop:- \+ current_predicate(current_logtalk_flag/2),!.
 ensure_threaded_engine_loop:- logtalk:threaded_engine(looped_threaded_engine_worker),!.
 ensure_threaded_engine_loop:- logtalk:threaded_engine_create(none, in_threaded_engine_loop, looped_threaded_engine_worker).
+
+:- multifile(logtalk:'$lgt_engine_term_queue_'/2).
+:- dynamic(logtalk:'$lgt_engine_term_queue_'/2).
+:- volatile(logtalk:'$lgt_engine_term_queue_'/2).
+
 :- multifile(logtalk:'$lgt_current_engine_'/4).
+:- dynamic(logtalk:'$lgt_current_engine_'/4).
 :- volatile(logtalk:'$lgt_current_engine_'/4).
+
+
 :- during_boot(ensure_threaded_engine_loop).
 
 %% vars_as( ?VarType) is det.
@@ -915,8 +923,8 @@ write_varvalues2([]):-!,flush_all_output.
 write_varvalues2(Vs):-
    flush_all_output,
    write('% '),
-   copy_term(Vs,Vs,Goals),
    write_varvalues3(Vs),
+   copy_term(Vs,Vs,Goals),
    write_goals(Goals),!,
    flush_all_output.
 
@@ -980,8 +988,9 @@ remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 %
 call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
  ignore((
+ b_setval('$term', (vars(Vs):-CMD)), /* DRM: added for expansion hooks*/
  nodebugx((
-  locally(t_l:disable_px,user:expand_goal(CMDI,CMD)),
+  locally(t_l:disable_px,(user:expand_goal(CMDI,CMD0),if_defined(fully_expand(CMD0,CMD),CMD0=CMD))),
   (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
     show_call(call_with_results_0(CMD,VsRA)))))),!.
 
@@ -996,7 +1005,6 @@ call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
 %
 call_with_results_0(CMD,Vs):-
  set_varname_list( Vs),
- b_setval('$goal_term', CMD), /* DRM: added for expansion hooks*/
  flag(num_sols,_,0),
  (call_with_results_2(CMD,Vs) *->
   (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
