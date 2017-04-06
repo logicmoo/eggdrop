@@ -371,7 +371,7 @@ is_callable_egg(CMD):- callable(CMD),
 consultation_codes(CtrlNick,Port,end_of_file):-!,consultation_thread(CtrlNick,Port).
 consultation_codes(_BotNick,_Port,Codes):-
       text_to_string(Codes,String),
-      catch(read_term_from_atom(String,CMD,[]),_E,(my_wdmsg(String),!,fail)),!,
+      catch(read_term_from_atom(String,CMD,[double_quotes(string),module(eggdrop)]),_E,(my_wdmsg(String),!,fail)),!,
       is_callable_egg(CMD),
       my_wdmsg(maybe_call(CMD)),!,
       catch(CMD,E,my_wdmsg(E:CMD)).
@@ -580,10 +580,24 @@ ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(
 
 :- module_transparent(use_agent_module/1).
 :- module_transparent(save_agent_module/1).
-use_agent_module(AgentS):- any_to_atom(AgentS,Agent),source_and_module_for_agent(Agent,Module,CallModule),!,'$set_source_module'(Module),'$set_typein_module'(CallModule).
-save_agent_module(AgentS):- any_to_atom(AgentS,Agent), retractall(lmconf:chat_isModule(Agent,_)), '$set_source_module'(Next,Next),'$module'(CallModule,CallModule),asserta(lmconf:chat_isModule(Agent,Next,CallModule)).
-source_and_module_for_agent(Agent,Module,CallModule):- lmconf:chat_isModule(Agent,Module,CallModule),!.
-source_and_module_for_agent(Agent,Agent,user):- maybe_add_import_module(Agent,user,end), maybe_add_import_module(Agent,eggdrop,end).
+
+use_agent_module(AgentS):-
+   source_and_module_for_agent(AgentS,SourceModule,CallModule),!,
+   '$set_source_module'(SourceModule),
+   '$set_typein_module'(CallModule).
+
+save_agent_module(AgentS):- any_to_atom(AgentS,Agent), 
+   retractall(lmconf:chat_isModule(Agent,_,_)), 
+   '$set_source_module'(SourceModule,SourceModule),
+   '$module'(CallModule,CallModule),
+   asserta(lmconf:chat_isModule(Agent,SourceModule,CallModule)).
+
+source_and_module_for_agent(AgentS,SourceModule,CallModule):- 
+    any_to_atom(AgentS,Agent), 
+    lmconf:chat_isModule(Agent,SourceModule,CallModule),!.
+source_and_module_for_agent(AgentS,Module,Module):- 
+    any_to_atom(AgentS,Agent), 
+    agent_module(Agent,Module),!.
 
 
 :- reg_egg_builtin(unreadable/1).
@@ -740,11 +754,13 @@ is_lisp_call_functor('?>').
 :-module_transparent(ircEvent_call/4).
 :- reg_egg_builtin(ircEvent_call/4).
 
-agent_module(Agent,AgentModule):- string_to_atom(Agent,AgentModule),
-   add_import_module(AgentModule,baseKB,end),
-   add_import_module(AgentModule,eggdrop,end),
+agent_module(AgentS,AgentModule):- 
+   any_to_atom(AgentS,AgentModule),
+   add_import_module(AgentModule,baseKB,start),
+   add_import_module(AgentModule,eggdrop,start),
    add_import_module(AgentModule,lmconf,end),
-   add_import_module(AgentModule,user,end).
+   add_import_module(AgentModule,user,end),
+   add_import_module(AgentModule,system,end).
 
 
 %% ircEvent_call( ?Channel, ?Agent, ?CALL, ?Vs) is det.
@@ -1597,7 +1613,7 @@ read_egg_term(S,CMD0,Vs0):- text_to_string(S,String),
    atom_concat(_,'.',SString),
    open_string(SString,Stream),
    findall(CMD0-Vs0,(
-       catch(read_term(Stream,CMD,[double_quotes(string),module(eggdrop),variable_names(Vs)]),_,fail),!,
+       catch(read_term(Stream,CMD,[double_quotes(string),variable_names(Vs)]),_,fail),!,
        ((CMD=CMD0,Vs=Vs0);
         read_egg_term_more(Stream,CMD0,Vs0))),List),!,
    member(CMD0-Vs0,List).
@@ -1607,7 +1623,7 @@ read_egg_term(S,lispy(CMD),Vs):- text_to_string(S,String),
 
 read_egg_term_more(Stream,CMD,Vs):- 
        repeat, 
-        catch(read_term(Stream,CMD,[double_quotes(string),module(eggdrop),variable_names(Vs)]),_,CMD==err),
+        catch(read_term(Stream,CMD,[double_quotes(string),variable_names(Vs)]),_,CMD==err),
         (CMD==err->(!,fail);true),
         (CMD==end_of_file->!;true).
 
