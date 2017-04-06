@@ -34,7 +34,7 @@ reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(P
 
 :- reexport(irc_hooks).
 
-:- system:use_module(library(predicate_streams)).
+:- user:use_module(library(predicate_streams)).
 :- user:use_module(library(clpfd)).
 
 :- if((fail,exists_source(library(atts)))).
@@ -43,7 +43,7 @@ reg_egg_builtin(PIs):- ain(prologBuiltin(PIs)),ain(rtVerbatumArgs(PIs)),export(P
 :- endif.
 
 :- if(exists_source(library(logicmoo_utils))).
-:- system:use_module(library(logicmoo_utils)).
+:- user:use_module(library(logicmoo_utils)).
 :- endif.
 
 :- set_prolog_flag(dialect_pfc,cwc).
@@ -172,7 +172,7 @@ ctrl_port(3334).
 :- module_transparent(ircEvent/3).
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util 
 % supplies locally/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
-:- system:ensure_loaded(library(logicmoo_utils)).
+:- user:ensure_loaded(library(logicmoo_utils)).
 
 /*
 TODO

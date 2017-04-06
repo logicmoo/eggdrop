@@ -69,7 +69,7 @@ add_maybe_static/2,bot_nick/1,call_in_thread/1,call_with_results/3,check_put_ser
         with_rl(0).
 
 
-:- system:use_module(library(logicmoo_util_common)).
+:- user:use_module(library(logicmoo_util_common)).
 
 same_streams(Alias1,Alias2):- stream_property(S1,alias(Alias1)),stream_property(S2,alias(Alias2)),!,S1==S2.
 

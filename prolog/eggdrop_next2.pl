@@ -75,7 +75,7 @@ is_callable_egg/1,is_empty/1,is_lisp_call_functor/1,join/4,list_replace_egg/4,ms
         with_rl(0).
 
 
-:- system:use_module(library(logicmoo_util_common)).
+:- user:use_module(library(logicmoo_util_common)).
 
 same_streams(Alias1,Alias2):- stream_property(S1,alias(Alias1)),stream_property(S2,alias(Alias2)),!,S1==S2.
 
