@@ -1613,7 +1613,7 @@ read_egg_term(S,CMD0,Vs0):- text_to_string(S,String),
    atom_concat(_,'.',SString),
    open_string(SString,Stream),
    findall(CMD0-Vs0,(
-       catch(read_term(Stream,CMD,[double_quotes(string),variable_names(Vs)]),_,fail),!,
+       catch(read_term(Stream,CMD,[double_quotes(string),module(baseKB),variable_names(Vs)]),_,fail),!,
        ((CMD=CMD0,Vs=Vs0);
         read_egg_term_more(Stream,CMD0,Vs0))),List),!,
    member(CMD0-Vs0,List).
@@ -1623,7 +1623,7 @@ read_egg_term(S,lispy(CMD),Vs):- text_to_string(S,String),
 
 read_egg_term_more(Stream,CMD,Vs):- 
        repeat, 
-        catch(read_term(Stream,CMD,[double_quotes(string),variable_names(Vs)]),_,CMD==err),
+        catch(read_term(Stream,CMD,[double_quotes(string),module(baseKB),variable_names(Vs)]),_,CMD==err),
         (CMD==err->(!,fail);true),
         (CMD==end_of_file->!;true).
 
