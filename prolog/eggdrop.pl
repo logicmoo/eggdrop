@@ -22,6 +22,7 @@
 :- if(current_module(rdf_rewrite)).
 :- kb_shared(rdf_rewrite:arity/2).
 :- else.
+:- autoload.
 :- kb_shared(rdf_rewrite:arity/2).
 :- endif.
 
@@ -1548,10 +1549,13 @@ egg_go_fg:-
 
 % egg_go:- egg_go_fg,!.
 
-egg_go_maybe:- app_argv('--noirc'),!.
-egg_go_maybe:- app_argv('--nonet'),!.
-egg_go_maybe:- \+ app_argv('--irc'), \+ app_argv('--all'),!.
+skip_egg_go:- app_argv('--noirc'),!.
+skip_egg_go:- app_argv('--nonet'),!.
+skip_egg_go:- \+ app_argv('--irc'), \+ app_argv('--all'),!.
+
+egg_go_maybe:- skip_egg_go,!.
 egg_go_maybe:- egg_go. 
+
 egg_go:- thread_property(R,status(running)),R == egg_go,!.
 egg_go:- thread_property(_,alias(egg_go)),threads,fail.
 egg_go:- thread_create(egg_go_fg,_,[alias(egg_go),detached(true),an_exit(show_thread_exit)]).
