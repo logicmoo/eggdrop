@@ -22,6 +22,8 @@
 :- if(current_module(rdf_rewrite)).
 :- kb_shared(rdf_rewrite:arity/2).
 :- else.
+:- dynamic(rdf_rewrite:arity/2).
+:- multifile(rdf_rewrite:arity/2).
 :- autoload.
 :- kb_shared(rdf_rewrite:arity/2).
 :- endif.
