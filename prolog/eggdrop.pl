@@ -19,14 +19,11 @@
 
 :- set_module(class(library)).
 
-:- if(current_module(rdf_rewrite)).
-:- kb_shared(rdf_rewrite:arity/2).
-:- else.
+:- if(\+ current_predicate(rdf_rewrite:arity/2)).
 :- dynamic(rdf_rewrite:arity/2).
 :- multifile(rdf_rewrite:arity/2).
-:- autoload.
-:- kb_shared(rdf_rewrite:arity/2).
 :- endif.
+:- baseKB:kb_shared(rdf_rewrite:arity/2).
 
 :- kb_shared(baseKB:prologBuiltin/1).
 :- kb_shared(baseKB:rtArgsVerbatum/1).
