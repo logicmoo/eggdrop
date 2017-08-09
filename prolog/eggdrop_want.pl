@@ -1158,7 +1158,9 @@ with_error_to_output(CMD):- !,
 %
 % Read Converted From Agent And Send.
 %
-read_from_agent_and_send(Agent,MF):- open_memory_file(MF, read, Stream,[ free_on_close(true)]),ignore_catch(read_codes_and_send(Stream,Agent)),ignore_catch(close(Stream)).
+read_from_agent_and_send(Agent,MF):- 
+  open_memory_file(MF, read, Stream,[ free_on_close(true)]),
+  ignore_catch(read_codes_and_send(Stream,Agent)),ignore_catch(close(Stream)).
 
 
 
