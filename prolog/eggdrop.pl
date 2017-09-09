@@ -89,7 +89,7 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 %
 % My Wdmsg.
 %
-my_wdmsg(Msg):- notrace(my_wdmsg0(Msg)).
+my_wdmsg(Msg):- quietly(my_wdmsg0(Msg)).
 
 :- dynamic(lmcache:real_user_output/1).
 :- volatile(lmcache:real_user_output/1).
@@ -106,7 +106,7 @@ my_wdmsg(S,Msg):- format(S,'~N% ~q.~n',[Msg]),flush_output_safe(S),!.
 :-dynamic(lmconf:chat_isWith/2).
 :- thread_local(t_l:(disable_px)).
 
-egg_to_string(A,S):- notrace(egg_to_string0(A,S)).
+egg_to_string(A,S):- quietly(egg_to_string0(A,S)).
 egg_to_string0(A,S):- var(A),!,trace_or_throw(var_egg_to_string(A,S)).
 egg_to_string0(A,S):- on_x_fail(text_to_string(A,S)),!.
 egg_to_string0([A],S):- on_x_fail(atom_string(A,S)),!.
@@ -347,7 +347,7 @@ consultation_thread(CtrlNick,Port):-
       % say(dmiles,consultation_thread(CtrlNick,Port)),
       % say("#logicmoo","hi therre!"),
       repeat,
-         nop(notrace(update_changed_files_eggdrop)),
+         nop(quietly(update_changed_files_eggdrop)),
          catch(read_line_to_codes(IN,Text),_,Text=end_of_file),
          Text\=end_of_file,
          once(consultation_codes(CtrlNick,Port,Text)),
@@ -585,7 +585,7 @@ ircEvent(Channel,Agent,call(CALL,Vs)):-
   thread_self(Self),tnodebug(Self),
   use_agent_module(Agent),!,
   b_setval('$variable_names',Vs),
-  notrace(loop_check(irc_filtered(Channel,Agent,CALL,Vs))),
+  quietly(loop_check(irc_filtered(Channel,Agent,CALL,Vs))),
   save_agent_module(Agent))),!.
 
 ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
