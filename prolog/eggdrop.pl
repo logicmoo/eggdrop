@@ -1035,6 +1035,7 @@ call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
 %
 call_with_results_0(CMD,Vs):-
  set_varname_list( Vs),
+ b_setval('$variable_names',Vs),
  flag(num_sols,_,0),
  (call_with_results_2(CMD,Vs) *->
   (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
@@ -1451,7 +1452,8 @@ privmsg1(OutStream,Channel,Text):-check_put_server_count(30)->privmsg2(OutStream
 %
 privmsg2(OutStream,Channel:_,Text):-nonvar(Channel),!,privmsg2(OutStream,Channel,Text).
 privmsg2(OutStream,_:Channel,Text):-nonvar(Channel),!,privmsg2(OutStream,Channel,Text).
-privmsg2(OutStream,Channel,Text):- sleep(0.2),escape_quotes(Text,N),!,show_call(on_f_log_ignore(format(OutStream,'\n.tcl putquick "PRIVMSG ~s :~s"\n',[Channel,N]))),!.
+privmsg2(OutStream,Channel,Text):- sleep(0.2),escape_quotes(Text,N),!,
+  show_failure(on_f_log_ignore(format(OutStream,'\n.tcl putquick "PRIVMSG ~s :~s"\n',[Channel,N]))),!.
 % privmsg2(OutStream,Channel,Text):-on_f_log_ignore(format(OutStream,'\n.msg ~s ~s\n',[Channel,Text])).
 
 % privmsg2(OutStream,Channel,Text):- escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~s" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
@@ -1591,7 +1593,7 @@ read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InSt
        with_stream_pos(InStream,show_entry(read_one_term_egg(InStream,CMD,Vs))).
 read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
 % read_one_term_egg(Stream,CMD,Vs):- catch((input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
-read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[variable_names(Vs),module(baseKB)])),_,fail),CMD\==end_of_file,!.
+read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[variable_names(Vs),module(baseKB)])),_,fail),CMD\==end_of_file,!,
 read_one_term_egg(Stream,unreadable(String),_):-catch((read_stream_to_codes(Stream,Text),string_codes(String,Text)),_,fail),!.
 read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream,Text,[]),string_codes(String,Text)),_,fail),!.
 
