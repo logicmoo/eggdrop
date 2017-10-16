@@ -260,7 +260,7 @@ remove_pred_egg(M,F,A):- functor(P,F,A),
 % Deregister Unsafe Predicates.
 %
 
-deregister_unsafe_preds:- current_predicate(system:kill_unsafe_preds/0),!.
+deregister_unsafe_preds:- current_predicate(kill_unsafe_preds/0),!.
 deregister_unsafe_preds:-!.
 deregister_unsafe_preds:- if_defined(getuid(0),true),forall(unsafe_preds_egg(M,F,A),whenever(run_network,remove_pred_egg(M,F,A))).
 deregister_unsafe_preds:-!.
@@ -1020,7 +1020,7 @@ call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
  ignore((
  b_setval('$term', (vars(Vs):-CMD)), /* DRM: added for expansion hooks*/
  nodebugx((
-  locally(t_l:disable_px,(user:expand_goal(CMDI,CMD0),if_defined(fully_expand(CMD0,CMD),CMD0=CMD))),
+  locally_tl(disable_px,(user:expand_goal(CMDI,CMD0),if_defined(fully_expand(CMD0,CMD),CMD0=CMD))),
   (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
     show_call(call_with_results_0(CMD,VsRA)))))),!.
 
