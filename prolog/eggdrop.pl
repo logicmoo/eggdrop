@@ -38,6 +38,10 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 :- user:use_module(library(logicmoo_utils)).
 :- endif.
 
+:- if(exists_source(library(sexpr_reader))).
+:- use_module(library(sexpr_reader)).
+:- endif.
+
 /*
 :- if(\+ current_predicate(rdf_rewrite:arity/2)).
 :- multifile(rdf_rewrite:arity/2).
@@ -184,7 +188,6 @@ ctrl_port(3334).
 :- module_transparent(ircEvent/3).
 % from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util 
 % supplies locally/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
-:- user:ensure_loaded(library(logicmoo_utils)).
 
 /*
 TODO
@@ -211,14 +214,14 @@ TODO
 :- dynamic(lmconf:chat_isRegistered/3).
 lmconf:chat_isRegistered(Channel,Agent,kifbot):-lmconf:chat_isWith(Channel,Agent).
 lmconf:chat_isRegistered(_,"someluser",execute):-!,fail.
-lmconf:chat_isRegistered("#ai",_,execute):-ignore(fail).
+%lmconf:chat_isRegistered("#ai",_,execute):-ignore(fail).
 lmconf:chat_isRegistered("#pigface",_,execute):-ignore(fail).  % havent been there since 2001
 lmconf:chat_isRegistered("#logicmoo",_,execute):-ignore(fail).
 lmconf:chat_isRegistered("#kif",_,execute):-ignore(fail).
-lmconf:chat_isRegistered("#rdfig",_,execute):-ignore(fail).
+%lmconf:chat_isRegistered("#rdfig",_,execute):-ignore(fail).
 lmconf:chat_isRegistered("##prolog",_,execute):-!.
 % all may execture since they are using ?-
-lmconf:chat_isRegistered(_,_,execute):-!.
+%lmconf:chat_isRegistered(_,_,execute):-!.
 
 :- export((egg_go/0,ircEvent/3,call_with_results/2,lmconf:chat_isRegistered/3)).
 % ===================================================================
@@ -553,14 +556,14 @@ ircEvent(DEST,User,say(W)):-
 ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,!.
 
 % attention (notice the fail to disable)
-ircEvent(Channel,Agent,say(W)):- fail,
+ircEvent(Channel,Agent,say(W)):- %fail,
                atom_contains(W,"goodbye"),!,retractall(lmconf:chat_isWith(Channel,Agent)).
 
-ircEvent(Channel,Agent,say(W)):- fail,
+ircEvent(Channel,Agent,say(W)):- %fail,
                (bot_nick(BotNick),atom_contains(W,BotNick)),
 		retractall(lmconf:chat_isWith(Channel,Agent)),!,
 		asserta(lmconf:chat_isWith(Channel,Agent)),!,
-		say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"']).
+		nop(say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"'])).
 
 
                 % irc_hooks:on_irc_msg(C,A,say(T)):-!,irc_hooks:on_irc_msg(T).
@@ -635,7 +638,7 @@ unreadable(UR):-my_wdmsg(unreadable(UR)).
 %
 
 % eggdrop_bind_user_streams :- !.
-eggdrop_bind_user_streams :- thread_self(main),!.
+% eggdrop_bind_user_streams :- thread_self(main),!.
 eggdrop_bind_user_streams :-
   user:((
 	user:open_prolog_stream(eggdrop_io, write, Out, []),
@@ -746,10 +749,15 @@ irc_filtered(Channel,Agent,((=>(H)) :- B ),Vs):-
 irc_filtered(Channel,Agent,'?-'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
 
 irc_filtered(Channel,Agent,AIN,Vs):- is_ained(AIN),ircEvent_call(Channel,Agent,ain_expanded(AIN),Vs),!.
+irc_filtered(Channel,Agent,lispy(Lispy),Vs):- lmconf:chat_isRegistered(Channel,Agent,kifbot),
+  ircEvent_call(Channel,Agent,lisp_compiled_eval([print,Lispy],_R),Vs),!.
+/*
+irc_filtered(Channel,Agent,lispy(Lispy),Vs):- ircEvent_call(Channel,Agent,lisp_compiled_eval([print,Lispy],R),['LispRes'=R|Vs]),!.
 irc_filtered(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_call_functor(S),!,
    (current_predicate(lisp_call/3) -> ircEvent_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
      my_wdmsg(cant_ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs))).
-irc_filtered(Channel,Agent,CALL,Vs):- lmconf:chat_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
+*/
+irc_filtered(Channel,Agent,CALL,Vs):- lmconf:chat_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.      
 irc_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!.
 
 is_ained(AIN):- \+ compound(AIN),!,fail.
@@ -1625,7 +1633,6 @@ read_each_term_egg(S,CMD,Vs):-
 %
 :- reg_egg_builtin(read_egg_term/3).
 :-module_transparent(read_egg_term/3).
-:- use_module(library(sexpr_reader)).
 
 read_egg_term(S,CMD0,Vs0):- text_to_string(S,String),
    split_string(String,""," \r\n\t",[SString]),
@@ -1638,7 +1645,7 @@ read_egg_term(S,CMD0,Vs0):- text_to_string(S,String),
    member(CMD0-Vs0,List).
 
 read_egg_term(S,lispy(CMD),Vs):- text_to_string(S,String),
-   input_to_forms(String,CMD,Vs),!,is_list(CMD).
+   input_to_forms(String,CMD,Vs),!.
 
 read_egg_term_more(Stream,CMD,Vs):- 
        repeat, 
