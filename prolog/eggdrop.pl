@@ -39,7 +39,7 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 :- endif.
 
 :- if(exists_source(library(sexpr_reader))).
-:- use_module(library(sexpr_reader)).
+% :- ensure_loaded(library(sexpr_reader)).
 :- endif.
 
 /*
