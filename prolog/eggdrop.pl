@@ -151,7 +151,7 @@ bot_nick("PrologMUD").
 %
 % Ctrl Server.
 %
-ctrl_server('10.0.0.247').
+ctrl_server('gitlab').
 
 
 
@@ -559,7 +559,7 @@ ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,
 ircEvent(Channel,Agent,say(W)):- %fail,
                atom_contains(W,"goodbye"),!,retractall(lmconf:chat_isWith(Channel,Agent)).
 
-ircEvent(Channel,Agent,say(W)):- %fail,
+ircEvent(Channel,Agent,say(W)):- fail,
                (bot_nick(BotNick),atom_contains(W,BotNick)),
 		retractall(lmconf:chat_isWith(Channel,Agent)),!,
 		asserta(lmconf:chat_isWith(Channel,Agent)),!,
