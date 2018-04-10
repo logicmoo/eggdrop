@@ -26,8 +26,8 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 
 :- reexport(irc_hooks).
 
-:- user:use_module(library(predicate_streams)).
-:- user:use_module(library(clpfd)).
+:- use_module(library(predicate_streams)).
+:- use_module(library(clpfd),except([sum/3])).
 
 :- if((fail,exists_source(library(atts)))).
 :- set_prolog_flag(metaterm,true).
