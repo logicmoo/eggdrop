@@ -22,7 +22,7 @@
 :- dynamic(lmconf:irc_bot_nick/1).
 lmconf:irc_bot_nick("PrologMUD").
 reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
-  baseKB:ain(baseKB:rtArgsVerbatum(PIs)),export(PIs).
+  baseKB:assert_if_new(baseKB:rtArgsVerbatum(PIs)),export(PIs).
 
 :- reexport(irc_hooks).
 
@@ -291,8 +291,8 @@ system:halt:- format('the halting problem is now solved!').
 :- volatile(egg:stdio/3).
 :- dynamic(egg:stdio/3).
 
-:- ain(mtExact(lmcache)).
-:- ain(mtExact(lmconf)).
+%:- ain(mtExact(lmcache)).
+%:- ain(mtExact(lmconf)).
 
 
 
@@ -795,7 +795,9 @@ ircEvent_call(Channel,Agent,CALL,Vs):-  fail,
 
 
 ircEvent_call(Channel,Agent,Query,Bindings):-
-   agent_module(Agent,AgentModule),
+   source_and_module_for_agent(Agent,SourceModule,CallModule),
+   agent_module(Agent,Module),
+   (SourceModule==Module-> CallModule= AgentModule ;SourceModule=AgentModule),
      '$toplevel':call_expand_query(Query, ExpandedQuery,
                           Bindings, ExpandedBindings)
             ->  AgentModule:expand_goal(ExpandedQuery, Goal),
