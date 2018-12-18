@@ -34,8 +34,8 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 :- use_module(library(atts)).
 :- endif.
 
-:- if(exists_source(library(logicmoo_utils))).
-:- user:use_module(library(logicmoo_utils)).
+:- if(exists_source(library(logicmoo_utils_all))).
+:- user:use_module(library(logicmoo_utils_all)).
 :- endif.
 
 :- if(exists_source(library(sexpr_reader))).
@@ -125,7 +125,7 @@ egg_booting :- ignore((stream_property(S,alias(user_output)),asserta(lmcache:rea
 
 :- my_wdmsg("HI there").
 
-:- use_module(library(virtualize_source)).
+:- use_module(library(hybrid_db/virtualize_source)).
 :- virtualize_source_file.
 
 
