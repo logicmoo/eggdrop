@@ -125,7 +125,7 @@ egg_booting :- ignore((stream_property(S,alias(user_output)),asserta(lmcache:rea
 
 :- my_wdmsg("HI there").
 
-:- use_module(library(hybrid_db/virtualize_source)).
+:- use_module(library(logicmoo/virtualize_source)).
 :- virtualize_source_file.
 
 
