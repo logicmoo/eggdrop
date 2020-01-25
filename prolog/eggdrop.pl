@@ -9,7 +9,7 @@
   say_list/4,say_prefixed/3,sayq/1,show_thread_exit/0,to_egg/1,to_egg/2,unreadable/1,unsafe_preds_egg/3,
   update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,with_no_input/1,
   with_output_channel/2,with_rl/1,egg:stdio/3,lmcache:vars_as/1,ignored_channel/1,lmconf:chat_isWith/2,lmconf:chat_isRegistered/3,last_read_from/3,
-  lmconf:chat_isChannelUserAct/4,
+  lmconf:chat_isChannelUserAct/4,tg_name_text/3,
   attvar_to_dict_egg/2,
   % dict_to_attvar_egg/2,
   format_nv/2
@@ -353,7 +353,7 @@ consultation_thread(CtrlNick,Port):-
          nop(quietly(update_changed_files_eggdrop)),
          catch(read_line_to_codes(IN,Text),_,Text=end_of_file),
          Text\=end_of_file,
-         once(consultation_codes(CtrlNick,Port,Text)),
+         once(notrace(consultation_codes(CtrlNick,Port,Text))),
          fail.
 
 
@@ -473,7 +473,7 @@ irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
        t_l:default_user(USER),
        t_l:session_id(ID),
        t_l:current_irc_receive(USER, HOSTMASK,TYPE,DEST,MESSAGE)],
-        with_rl((eggdrop_bind_user_streams, ircEvent(DEST,USER,MESSAGE))))))).
+        with_rl((eggdrop_bind_user_streams, notrace(ircEvent(DEST,USER,MESSAGE)))))))).
 
 
 
@@ -542,11 +542,41 @@ recordlast(Channel,User,What):-functor(What,F,_),retractall(lmconf:chat_isChanne
 % awaiting some inputs
 
 
+tg_name_text(StringIn, Name, Value) :-
+        replace_in_string("> [edited] ", "> ",StringIn,String),
+        sub_string(String, Before, _, After, ">"), Before>1, !,
+        sub_string(String, 0, Before, _, NameString),
+        tg_name(NameString, Name),!,
+        sub_string(String, _, After, 0, Value).
+
+tg_name(NameString, Name):- tg_name(is_printing_alpha_char,NameString, Name).
+tg_name(How,NameString, Name):- atom_chars(NameString,Chars),include(How,Chars,NameChars),text_to_string(NameChars,Name).
+
+
+
+
+is_printing_alpha_char(' '):- !,fail.
+is_printing_alpha_char('_'):-!.
+is_printing_alpha_char(X):- char_type(X,alpha),!.
+
 
 %% ircEvent( ?DEST, ?User, ?Event) is det.
 %
 % Irc Event.
 %
+ircEvent(DEST,User,Stuff):- string(User),string_lower(User,DUser),User\=@=DUser,!,ircEvent(DEST,DUser,Stuff).
+
+ircEvent(DEST,User,Stuff):- atom(User),downcase_atom(User,DUser),User\=@=DUser,!,ircEvent(DEST,DUser,Stuff).
+
+ircEvent(DEST,User,say(W)):- \+ string(W),
+  catch_ignore(text_to_string(W,S)),!,ircEvent(DEST,User,say(S)).
+
+%  "<@\003\1Douglas Miles\017\> ?- member(Z,[a])."
+
+ircEvent(DEST,_User,say(W)):- 
+   tg_name_text(W, Name, Value),W\==Value,!,
+   ircEvent(DEST,Name,say(Value)).
+
 ircEvent(DEST,User,say(W)):-
  term_to_atom(cu(DEST,User),QUEUE),
    message_queue_property(_, alias(QUEUE)),
@@ -567,7 +597,9 @@ ircEvent(Channel,Agent,say(W)):- fail,
 
 
                 % irc_hooks:on_irc_msg(C,A,say(T)):-!,irc_hooks:on_irc_msg(T).
+
 ircEvent(Channel,Agent,Event):- say(_) \= Event, once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
+
 ircEvent(Channel,Agent,say(Event)):- once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
 
 
@@ -1143,6 +1175,8 @@ with_no_input(CMD):- CMD.
 % Ignore Catch.
 %
 ignore_catch(CALL):-ignore(catch(CALL,E,my_wdmsg(E:CALL))).
+catch_ignore(CALL):- catch(CALL,E,(my_wdmsg(E:CALL),fail)).
+
 
 
 :- meta_predicate with_error_to_output(0).
@@ -1284,8 +1318,12 @@ say(D):- say("#logicmoo",D),!.
 % Say Prefixed.
 %
 say_prefixed(Agent,Agent,Out):- say(Agent,Out),!.
+say_prefixed(A1,A2,Out):- not_bot(A1,A2,A3),say(A3,Out),!.
 say_prefixed(Agent,Prefix,Out):-sformat(SF,'~p',[Out]), say(Agent:Prefix,SF),!.
 say_prefixed(Agent,Prefix,Out):-sformat(SF,'~w: ~p',[Prefix,Out]), say(Agent,SF),!.
+
+not_bot(Bot,A,A):- atom_contains(Bot,'logicmoo-').
+not_bot(A,Bot,A):- atom_contains(Bot,'logicmoo-').
 
 :- export(say/2).
 
@@ -1636,7 +1674,7 @@ read_each_term_egg(S,CMD,Vs):-
 :- reg_egg_builtin(read_egg_term/3).
 :-module_transparent(read_egg_term/3).
 
-read_egg_term(S,CMD0,Vs0):- text_to_string(S,String),
+read_egg_term(String,CMD0,Vs0):- string(String),!,   
    split_string(String,""," \r\n\t",[SString]),
    atom_concat(_,'.',SString),
    open_string(SString,Stream),
@@ -1647,7 +1685,7 @@ read_egg_term(S,CMD0,Vs0):- text_to_string(S,String),
    member(CMD0-Vs0,List).
 
 read_egg_term(S,lispy(CMD),Vs):- text_to_string(S,String),
-   input_to_forms(String,CMD,Vs),!.
+   catch((input_to_forms(String,CMD,Vs)),_,fail),!.
 
 read_egg_term_more(Stream,CMD,Vs):- 
        repeat, 
