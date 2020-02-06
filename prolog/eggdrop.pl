@@ -1,12 +1,16 @@
 :- module(eggdrop, [egg_go_maybe/0,
   add_maybe_static/2,bot_nick/1,call_in_thread/2,call_with_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
   consultation_thread/2,ctcp/6,ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,
-  egg_go_fg/0,eggdropConnect/0,eggdropConnect/2,eggdropConnect/4,eggdrop_bind_user_streams/0,escape_quotes/2,flush_all_output/0,flushed_privmsg/4,
+  egg_go_fg/0,eggdropConnect/0,eggdropConnect/2,eggdropConnect/4,eggdrop_bind_user_streams/0,escape_quotes/2,flush_all_output/0,
+  privmsg_prefixed/2,
+  privmsg_prefixed/2,
+  privmsg1/2,
+  privmsg2/2,
   format_nv/2,get2react/1,get_session_prefix/1,ignore_catch/1,ignored_source/1,ircEvent/3,ircEvent_call/4,irc_filtered/4,
   irc_receive/5,is_callable_egg/1,is_empty/1,is_lisp_call_functor/1,join/4,list_replace_egg/4,msgm/5,my_wdmsg/1,
-  part/5,privmsg/3,privmsg_session/3,pubm/5,putnotice/3,read_codes_and_send/2,read_each_term_egg/3,read_from_agent_and_send/2,
-  read_one_term_egg/3,recordlast/3,remove_anons/2,remove_pred_egg/3,say/1,say/2,say/3,say_list/3,
-  say_list/4,say_prefixed/3,sayq/1,show_thread_exit/0,to_egg/1,to_egg/2,unreadable/1,unsafe_preds_egg/3,
+  part/5,privmsg/2,privmsg_session/2,pubm/5,put_notice/2,read_codes_and_send/2,read_each_term_egg/3,read_from_agent_and_send/2,
+  read_one_term_egg/3,recordlast/3,remove_anons/2,remove_pred_egg/3,say/1,say/2,say/2,
+  sayq/1,show_thread_exit/0,put_egg/1,put_egg/2,unreadable/1,unsafe_preds_egg/3,
   update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,with_no_input/1,
   with_output_channel/2,with_rl/1,egg:stdio/3,lmcache:vars_as/1,ignored_channel/1,lmconf:chat_isWith/2,lmconf:chat_isRegistered/3,last_read_from/3,
   lmconf:chat_isChannelUserAct/4,tg_name_text/3,
@@ -340,13 +344,13 @@ eggdropConnect(Host,Port,CtrlNick,Pass):-
 %
 consultation_thread(CtrlNick,Port):-
       eggdropConnect(CtrlNick,Port),
-      to_egg('.echo off\n'),
-      to_egg('.console ~w ""\n',[CtrlNick]),
+      put_egg('.echo off\n'),
+      put_egg('.console ~w ""\n',[CtrlNick]),
       must(lmconf:irc_bot_nick(PrologMUDNick)),
-      to_egg('.set nick ~w\n',[PrologMUDNick]),
+      put_egg('.set nick ~w\n',[PrologMUDNick]),
       must(egg:stdio(CtrlNick,IN,_)),!,
       % loop
-      to_egg('.console #logicmoo\n',[]),
+      put_egg('.console #logicmoo\n',[]),
       % say(dmiles,consultation_thread(CtrlNick,Port)),
       % say("#logicmoo","hi therre!"),
       repeat,
@@ -1281,10 +1285,10 @@ update_changed_files_eggdrop(Reload):-
 
 irc_action(IDEA):- say([':ACTION ',IDEA]).
 
-set_irc_nick(Nick):- text_to_string(Nick,SNick),to_egg('.set botnick ~s\n',[SNick]),
+set_irc_nick(Nick):- text_to_string(Nick,SNick),put_egg('.set botnick ~s\n',[SNick]),
   retractall(lmconf:irc_bot_nick(_)),asserta(lmconf:irc_bot_nick(SNick)).
 
-set_irc_serv(NamePort):- to_egg('.jump ~w\n',[NamePort]).
+set_irc_serv(NamePort):- put_egg('.jump ~w\n',[NamePort]).
 
 irc_connect :- egg_go,call_no_cuts(call_no_cuts(irc_hooks:on_irc_connect("The eggdrop is always connected"))).
 
@@ -1311,63 +1315,39 @@ say(D):- t_l:default_channel(C),say(C,D),!.
 say(D):- say("#logicmoo",D),!.
 
 
-
-
-%% say_prefixed( ?Agent, ?Agent, ?Out) is det.
-%
-% Say Prefixed.
-%
-say_prefixed(Agent,Agent,Out):- say(Agent,Out),!.
-say_prefixed(A1,A2,Out):- not_bot(A1,A2,A3),say(A3,Out),!.
-say_prefixed(Agent,Prefix,Out):-sformat(SF,'~p',[Out]), say(Agent:Prefix,SF),!.
-say_prefixed(Agent,Prefix,Out):-sformat(SF,'~w: ~p',[Prefix,Out]), say(Agent,SF),!.
-
 not_bot(Bot,A,A):- atom_contains(Bot,'logicmoo-').
 not_bot(A,Bot,A):- atom_contains(Bot,'logicmoo-').
 
 :- export(say/2).
 
+:- reg_egg_builtin(say/2).
 
-
-
-%% say( ?Channel, ?Data) is det.
+%% say( ?OutStream, ?Channel, ?List) is det.
 %
-% Say.
+% Say List.
 %
-say(Channel,Data):-var(Data),!,
-  	once(egg:stdio(_Agent,_InStream,OutStream);current_output(OutStream)),
-	say(OutStream,Channel,Data),!.
+
+%% say( ?Agent, ?Out) is det.
+%
+% Say Prefixed.
+%
+say(C:C,Text):-nonvar(C),!,say(C,Text).
+say(A1:A2,Out):- not_bot(A1,A2,A3),say(A3,Out),!.
+say(C:A,Text):- nonvar(A), !, locally(t_l:session_id(A), say(C,Text)).
+
+say(Channel,Data):- var(Data),!,sformat(String,'~p',[Data]),say(Channel,String).
 say(Channel,[Channel,': '|Data]):-nonvar(Data),say(Channel,Data),!.
-%say(C:C,Text):-nonvar(C),!,say(C,Text).
-%say(C:A,Text):-!,say_prefixed(C,A,Text).
-say(Channel,Data):-
-	once(egg:stdio(_Agent,_InStream,OutStream);current_output(OutStream)),
-	say(OutStream,Channel,Data),!.
-
-:- reg_egg_builtin(say/3).
-
-
-
-%% say( ?OutStream, ?NonList, ?Data) is det.
-%
-% Say.
-%
-say(_,NonList,Data):-is_stream(NonList),!,say(NonList,"console",Data),!.
-
-%say(_OutStream,Channel,Text):- my_wdmsg(will_say(Channel,Text)),fail.
-say(OutStream,NonList,Data):- var(Data),!,sformat(String,'~p',[Data]),say(OutStream,NonList,String).
-say(OutStream,NonList,Data):- \+(is_list(NonList)),text_to_string_safe(NonList, S),string_codes(S,Codes),!,say(OutStream,Codes,Data),!.
-say(OutStream,Channel,Text):-
-   egg_to_string(Text,Data),
-	concat_atom(List,'\n',Data),
-	say_list(OutStream,Channel,List),!.
-
-say(OutStream,Channel,Data):-
-	say_list(OutStream,Channel,[Data]),!.
-
-say(OutStream,Channel,Data):-my_wdmsg(say(OutStream,Channel,Data)),!.
-
-
+say(Channel,Out):- string(Out),!, any_to_codes(Out, Codes), privmsg(Channel,Codes).   
+say(_Channel,[]).
+say(_Channel,['']):- !.
+say(Channel,[S,'']):-!, say(Channel,[S]).
+say(Channel,PlString):- is_charlist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
+say(Channel,PlString):- is_codelist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
+say(Channel,[N|L]):- say(Channel,N), say(Channel,L),!.
+say(Channel,NotString):- catch_ignore(egg_to_string(NotString,String)),!,say(Channel,String).
+say(Channel,Data):- sformat(String,'~p',[Data]),say(Channel,String).
+%say(Channel,Data):- \+(is_list(Channel)),text_to_string_safe(Channel, S),string_codes(S,Codes),!,say(Codes,Data),!.
+% say(Channel,[S|L]):- \+ is_codelist([S|L]), on_x_fail(atom_string(N,S)),atom_concat('\t',Front,N), atom_concat('   ',Front,NEW),!,say(Channel,[NEW|L]).
 
 
 %% get_session_prefix( ?ID) is det.
@@ -1378,19 +1358,12 @@ get_session_prefix(ID):-t_l:session_id(ID),!.
 get_session_prefix(ID):-t_l:default_user(ID),!.
 get_session_prefix('').
 
-% say_list(_OutStream,Channel,Text):-my_wdmsg(say_list(Channel,Text)),fail.
+get_session_prefix_maybe(ID):-t_l:default_user(ID),!.
+get_session_prefix_maybe(ID):- get_session_prefix(ID),ID\==''.
+get_session_prefix_maybe(ID):-t_l:default_channel(ID),!.
 
 
-
-%% say_list( ?OutStream, ?Channel, ?List) is det.
-%
-% Say List.
-%
-say_list(OutStream,Channel,List):-
-  get_session_prefix(Prefix),!,
-  say_list(OutStream,Channel,Prefix,List),!.
-
-
+same_channels(Prefix,Channel):- egg_to_string(Prefix,C1),egg_to_string(Channel,C2),!,C1=C2.
 
 
 %% is_empty( ?A) is det.
@@ -1400,41 +1373,12 @@ say_list(OutStream,Channel,List):-
 is_empty(A):-egg_to_string(A,S),string_length(S,0).
 
 
+squelch_empty(For,Channel,[]):- squelch_empty(For,Channel,'  ').
+squelch_empty(For,Channel,[13]):- squelch_empty(For,Channel,'  ').
+squelch_empty(For,Channel,[10]):- squelch_empty(For,Channel,'  ').
+squelch_empty(For,Channel,'  '):- nb_current(For,privmsg(Channel,'  ')),!.
+squelch_empty(For,Channel,Text):-  nb_setval(For,privmsg(Channel,Text)),fail.
 
-
-%% flushed_privmsg( ?OutStream, ?Channel, ?Fmt, ?Args) is det.
-%
-% Flushed Privmsg.
-%
-flushed_privmsg(OutStream,Channel,Fmt,Args):-
-  format(string(NS),Fmt,Args),
-  privmsg(OutStream,Channel,NS),!,
-  catch(flush_output(OutStream),_,true).
-
-
-
-
-%% say_list( ?OutStream, ?Channel, ?ID, ?List) is det.
-%
-% Say List.
-%
-say_list(OutStream,Channel:Prefix,_ID,List):-nonvar(Channel),!,say_list(OutStream,Channel,Prefix,List).
-
-
-say_list(_OutStream,_Channel,_Prefix,[]).
-
-say_list(_OutStream,_Channel,_Prefix,['']):- !.
-say_list(OutStream,Channel,Prefix,[S,'']):-!, say_list(OutStream,Channel,Prefix,[S]).
-% say_list(OutStream,Channel,Prefix,[S|L]):- my_wdmsg(say_list(OutStream,Channel,Prefix,[S|L])),fail.
-say_list(OutStream,Channel,Prefix,[S|L]):- on_x_fail(atom_string(N,S)),atom_concat('\t',Front,N),
-          atom_concat('   ',Front,NEW),!,say_list(OutStream,Channel,Prefix,[NEW|L]).
-
-say_list(OutStream,Channel,Prefix,[N|L]):- egg_to_string(Prefix,S),egg_to_string(Channel,S),!,
-        flushed_privmsg(OutStream,Channel,'~w',[N]),
-	say_list(OutStream,Channel,Prefix,L),!.
-say_list(OutStream,Channel,Prefix,[N|L]):-!,
-   flushed_privmsg(OutStream,Channel,'~w: ~w',[Prefix,N]),
-	say_list(OutStream,Channel,Prefix,L),!.
 
 :-thread_local t_l: put_server_count/1.
 :-thread_local t_l: put_server_no_max/0.
@@ -1461,59 +1405,82 @@ check_put_server_count(Max):-retract(t_l:put_server_count(Was)),Is is Was+1,asse
 %
 
 
+:- reg_egg_builtin(privmsg/1).
+privmsg(D):- get_session_prefix_maybe(C),privmsg(C,D),!.
+privmsg(D):- privmsg("#logicmoo",D),!.
 
-%% privmsg( ?OutStream, ?Channel, ?Text) is det.
+
+%% privmsg( ?Channel, ?Fmt, ?Args) is det.
 %
-% Privmsg.
+% Flushed Privmsg.
 %
+privmsg(Channel,Fmt,Args):-
+  format(string(NS),Fmt,Args),
+  privmsg(Channel,NS).
 
 
-privmsg(OutStream,Channel,Text):- string_codes(Text,Codes),privmsg0(OutStream,Channel,Codes).
+%% privmsg( ?Channel, ?Codes) is det.
+%
+% Privmsg Primary.
+%
+privmsg(Channel:_,Text):-nonvar(Channel),!,privmsg(Channel,Text).
+privmsg(_:Channel,Text):-nonvar(Channel),!,privmsg(Channel,Text).
+privmsg(Channel, [] ):- !, privmsg_prefixed(Channel,'  ').
+privmsg(Channel,Text):- \+ is_codelist(Text), !, any_to_codes(Text,Codes), privmsg(Channel, Codes). 
+privmsg(Channel,Text):- append(List,[Char],Text), code_type(Char, end_of_line), !, privmsg(Channel,List).
+privmsg(Channel,Codes):- append(LCodes,[10|RCodes],Codes), privmsg(Channel,LCodes), privmsg(Channel,RCodes).
+privmsg(Channel,Codes):- length(Codes,Len), Len>430,
+   length(LCodes,400), append(LCodes,RCodes,Codes), !,
+   privmsg_prefixed(Channel,LCodes), !, privmsg(Channel,RCodes).
+privmsg(Channel,Codes):- privmsg_prefixed(Channel,Codes).
 
 
+privmsg_prefixed(Channel, Data):- squelch_empty('$privmsg_prefixed',Channel,Data),!.
+privmsg_prefixed(Channel, Text) :- any_to_codes(Text, Out), 
+   ((get_session_prefix(Prefix), \+ same_channels(Prefix,Channel)) ->
+     (format(codes(Data),'~w: ~s',[Prefix,Out]),privmsg1(Channel,Data));privmsg1(Channel,Out)).
 
-
-%% privmsg0( ?OutStream, ?Channel, ?Codes) is det.
+%% privmsg( ?Channel, ?Codes) is det.
 %
 % Privmsg Primary Helper.
 %
-privmsg0(OutStream,Channel,Codes):-length(Codes,Len),Len>430,length(LCodes,430),append(LCodes,RCodes,Codes),!,
-   privmsg1(OutStream,Channel,LCodes),!,privmsg0(OutStream,Channel,RCodes).
-privmsg0(OutStream,Channel,Codes):-privmsg1(OutStream,Channel,Codes).
 
-
-
-
-%% privmsg1( ?OutStream, ?Channel, ?Text) is det.
-%
-% Privmsg Secondary Helper.
-%
-privmsg1(OutStream,Channel,Text):-check_put_server_count(30)->privmsg2(OutStream,Channel,Text);ignore(check_put_server_count(100)->privmsg_session(OutStream,Channel,Text);true).
-
-
-
+privmsg1(Channel,Data):- squelch_empty('$privmsg1',Channel,Data),!.
+privmsg1(Channel,Text):-   
+   once(check_put_server_count(50)->privmsg2(Channel,Text);
+   ignore(check_put_server_count(100)->privmsg_session(Channel,Text);true)).
 
 
 %% privmsg2( ?OutStream, ?Channel, ?Text) is det.
 %
 % Privmsg Extended Helper.
 %
-privmsg2(OutStream,Channel:_,Text):-nonvar(Channel),!,privmsg2(OutStream,Channel,Text).
-privmsg2(OutStream,_:Channel,Text):-nonvar(Channel),!,privmsg2(OutStream,Channel,Text).
-privmsg2(OutStream,Channel,Text):- sleep(0.2),escape_quotes(Text,N),!,
-  show_failure(on_f_log_ignore(format(OutStream,'\n.tcl putquick "PRIVMSG ~s :~s"\n',[Channel,N]))),!.
-% privmsg2(OutStream,Channel,Text):-on_f_log_ignore(format(OutStream,'\n.msg ~s ~s\n',[Channel,Text])).
+privmsg2(Channel,Data):- squelch_empty('$privmsg2',Channel,Data),!.
+privmsg2(Channel,Text):- sleep(0.2), 
+   any_to_codes(Channel, EChannel), escape_quotes(Text, EText),
+   put_egg('\n.tcl putquick "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
+/*
+privmsg2(Channel,Text):- egg_to_string(Channel,CS),escape_quotes(Text,N),
+  sleep(0.2),sformat(S,'\n.tcl putquick "PRIVMSG ~s :~s"\n',[CS,N]),
+  dmsg(put_egg(S)),
+  put_egg(S),!.
+*/
 
-% privmsg2(OutStream,Channel,Text):- escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~s" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
+
+% privmsg2(Channel,Text):-on_f_log_ignore(format(OutStream,'\n.msg ~s ~s\n',[Channel,Text])).
+% privmsg2(Channel,Text):- escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~s" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
 
 
 
 
-%% putnotice( ?OutStream, ?Channel, ?Text) is det.
+%% put_notice( ?OutStream, ?Channel, ?Text) is det.
 %
 % Putnotice.
 %
-putnotice(OutStream,Channel,Text):-escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "NOTICE ~s :~w"\n',[Channel,N]),_,fail)),!.
+put_notice(Channel,Data):- squelch_empty('$put_notice',Channel,Data),!.
+put_notice(Channel,Text):- 
+   any_to_codes(Channel, EChannel), escape_quotes(Text, EText),
+   put_egg('\n.tcl putserv "NOTICE ~s :~s"\n',[EChannel, EText]),!.
 
 
 
@@ -1522,44 +1489,47 @@ putnotice(OutStream,Channel,Text):-escape_quotes(Text,N),ignore(catch(format(Out
 %
 % Privmsg Session.
 %
-privmsg_session(OutStream,Channel,Text):- t_l:session_id(ID),(ID==Channel->privmsg2(OutStream,Channel,Text);privmsg2(OutStream,ID,Text)).
+privmsg_session(Channel,Text):- t_l:session_id(ID),(ID==Channel->privmsg2(Channel,Text);privmsg2(ID,Text)).
 
 
 
-
-
-%% to_egg( ?X) is det.
+%% put_egg( ?X) is det.
 %
 % Converted To Egg.
 %
-to_egg(X):-to_egg('~w',[X]),!.
+put_egg(X):-put_egg('~w',[X]),!.
 
 
 
-%% to_egg( ?X, ?Y) is det.
+%% put_egg( ?X, ?Y) is det.
 %
 % Converted To Egg.
 %
-to_egg(X,Y):-once(egg:stdio(_Agent,_InStream,OutStream)),once((sformat(S,X,Y),format(OutStream,'~s\n',[S]),!,flush_output(OutStream))).
+put_egg(X,Y):-once(egg:stdio(_Agent,_InStream,OutStream)),
+  once((sformat(S,X,Y),format(OutStream,'~s\n',[S]),!,flush_output(OutStream))).
 
 
 
 
+any_to_codes(Data,Codes):- notrace(any_to_codelist(Data,Codes)).
+
+any_to_codelist(Data,Codes):- var(Data),!, sformat(String,'~w',Data),string_codes(String,Codes),!.
+any_to_codelist([],[]):-!.
+any_to_codelist(Codes,Codes):- is_codelist(Codes),!.
+any_to_codelist(String,Codes):- string(String),!,string_codes(String,Codes).
+any_to_codelist(Chars,Codes):- is_charlist(Chars),text_to_string(Chars,String),string_codes(String,Codes).
+any_to_codelist(Chars,Codes):- atomic(Chars),text_to_string_safe(Chars,String),string_codes(String,Codes).
+any_to_codelist(Data,Codes):- sformat(String,'~p',Data),!,string_codes(String,Codes).
 
 %% escape_quotes( ?LIST, ?ISO) is det.
 %
 % Escape Quotes.
 %
-escape_quotes(LIST,ISO):-
-           %dmsg(q(I)),
-            %    term_string(I,IS),!,
-		%string_to_list(IS,LIST),!,
-		list_replace_egg(LIST,92,[92,92],LISTM),
-		list_replace_egg(LISTM,34,[92,34],LISTM2),
-                list_replace_egg(LISTM2,91,[92,91],LIST3),
-                list_replace_egg(LIST3,36,[92,36],LISTO),
-                =(LISTO,ISO),!.
-		% text_to_string(LISTO,ISO),!.
+escape_quotes(Any,LISTO):- any_to_codes(Any,LIST),
+   list_replace_egg(LIST,92,[92,92],LISTM),
+   list_replace_egg(LISTM,34,[92,34],LISTM2),
+   list_replace_egg(LISTM2,91,[92,91],LIST3),
+   list_replace_egg(LIST3,36,[92,36],LISTO),!.
 
 
 
