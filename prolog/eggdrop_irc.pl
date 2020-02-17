@@ -12,7 +12,7 @@
   read_one_term_egg/3,recordlast/3,remove_anons/2,remove_pred_egg/3,say/1,say/2,say/2,
   sayq/1,show_thread_exit/0,put_egg/1,put_egg/2,unreadable/1,unsafe_preds_egg/3,
   update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,with_no_input/1,
-  with_output_channel/2,with_rl/1,egg:stdio/3,lmcache:vars_as/1,ignored_channel/1,lmconf:chat_isWith/3,lmconf:chat_isRegistered/3,last_read_from/3,
+  with_output_channel/2,with_rl/1,egg:stdio/3,lmcache:vars_as/1,ignored_channel/1,lmconf:chat_isWith/2,lmconf:chat_isRegistered/3,last_read_from/3,
   lmconf:chat_isChannelUserAct/4,tg_name_text/3,
   attvar_to_dict_egg/2,
   % dict_to_attvar_egg/2,
@@ -57,12 +57,9 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 :- kb_shared(baseKB:prologBuiltin/1).
 */
 :- export(baseKB:rtArgsVerbatum/1).
-:- import(baseKB:rtArgsVerbatum/1).
 :- export(rdf_rewrite:arity/2).
+:- import(baseKB:rtArgsVerbatum/1).
 :- import(rdf_rewrite:arity/2).
-:- export(baseKB:mtExact/1).
-:- import(baseKB:mtExact/1).
-
 
 
 % :- set_prolog_flag(dialect_pfc,cwc).
@@ -114,7 +111,7 @@ my_wdmsg0(Msg):- debugm(Msg).
 my_wdmsg(S,Msg):- string(Msg),format(S,'~N% ~w~N',[Msg]),flush_output_safe(S),!.
 my_wdmsg(S,Msg):- format(S,'~N% ~q.~n',[Msg]),flush_output_safe(S),!.
 
-:-dynamic(lmconf:chat_isWith/3).
+:-dynamic(lmconf:chat_isWith/2).
 :- thread_local(t_l:(disable_px)).
 
 egg_to_string(A,S):- quietly(egg_to_string0(A,S)).
@@ -132,8 +129,8 @@ egg_booting :- ignore((stream_property(S,alias(user_output)),asserta(lmcache:rea
 
 :- my_wdmsg("HI there").
 
-%:- use_module(library(logicmoo/virtualize_source)).
-%:- virtualize_source_file.
+:- use_module(library(logicmoo/virtualize_source)).
+:- virtualize_source_file.
 
 
 % ===================================================================
@@ -219,22 +216,18 @@ TODO
 % If Is A Registered.
 %
 :- dynamic(lmconf:chat_isRegistered/3).
-lmconf:chat_isRegistered(Channel,Agent,What):-lmconf:chat_isWith(What,Channel,Agent).
+lmconf:chat_isRegistered(Channel,Agent,kifbot):-lmconf:chat_isWith(Channel,Agent).
 lmconf:chat_isRegistered(_,"someluser",execute):-!,fail.
-%lmconf:chat_isRegistered("#ai",_, execute):-ignore(fail).
+%lmconf:chat_isRegistered("#ai",_,execute):-ignore(fail).
 lmconf:chat_isRegistered("#pigface",_,execute):-ignore(fail).  % havent been there since 2001
 lmconf:chat_isRegistered("#logicmoo",_,execute):-ignore(fail).
 lmconf:chat_isRegistered("#kif",_,execute):-ignore(fail).
 %lmconf:chat_isRegistered("#rdfig",_,execute):-ignore(fail).
-lmconf:chat_isRegistered("##prolog",_,execute).
-lmconf:chat_isRegistered("#logicmoo_mud",_,execute).
-lmconf:chat_isRegistered("#logicmoo_mud",_,mud).
+lmconf:chat_isRegistered("##prolog",_,execute):-!.
 % all may execture since they are using ?-
 %lmconf:chat_isRegistered(_,_,execute):-!.
 
-get_isRegistered(Channel,Agent,What):- lmconf:chat_isRegistered(Channel,Agent,What).
-
-:- export((egg_go/0,ircEvent/3,call_with_results/2,get_isRegistered/3,lmconf:chat_isRegistered/3)).
+:- export((egg_go/0,ircEvent/3,call_with_results/2,lmconf:chat_isRegistered/3)).
 % ===================================================================
 % Deregister unsafe preds
 % ===================================================================
@@ -560,10 +553,11 @@ tg_name_text(StringIn, Name, Value) :-
         tg_name(NameString, Name),!,
         sub_string(String, _, After, 0, Value).
 
-tg_name(NameString, Name):- filter_chars(is_printing_alpha_char,NameString, Name).
+tg_name(NameString, Name):- tg_name(is_printing_alpha_char,NameString, Name).
+tg_name(How,NameString, Name):- atom_chars(NameString,Chars),include(How,Chars,NameChars),text_to_string(NameChars,Name).
 
-filter_chars(How,NameString, Name):- get_text_restore_pred(NameString,DataPred),!, 
-   any_to_charlist(NameString,Chars),include(How,Chars,NameChars),call(DataPred,NameChars,Name).
+
+
 
 is_printing_alpha_char(' '):- !,fail.
 is_printing_alpha_char('_'):-!.
@@ -585,13 +579,7 @@ ircEvent(DEST,User,say(W)):- \+ string(W),
 
 ircEvent(DEST,_User,say(W)):- 
    tg_name_text(W, Name, Value),W\==Value,!,
-   locally(t_l:default_user(Name),
-      ircEvent(DEST,Name,say(Value))).
-
-ircEvent(DEST,_User,ctcp("ACTION",W)):- 
-   tg_name_text(W, Name, Value),W\==Value,!,
-   locally(t_l:default_user(Name),
-      ircEvent(DEST,Name,ctcp("ACTION",Value))).
+   ircEvent(DEST,Name,say(Value)).
 
 ircEvent(DEST,User,say(W)):-
  term_to_atom(cu(DEST,User),QUEUE),
@@ -601,14 +589,22 @@ ircEvent(DEST,User,say(W)):-
 % ignore some inputs
 ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,!.
 
+% attention (notice the fail to disable)
+ircEvent(Channel,Agent,say(W)):- %fail,
+               atom_contains(W,"goodbye"),!,retractall(lmconf:chat_isWith(Channel,Agent)).
+
+ircEvent(Channel,Agent,say(W)):- fail,
+               (bot_nick(BotNick),atom_contains(W,BotNick)),
+		retractall(lmconf:chat_isWith(Channel,Agent)),!,
+		asserta(lmconf:chat_isWith(Channel,Agent)),!,
+		nop(say(Channel,[hi,Agent,'I will answer you in',Channel,'until you say "goodbye"'])).
+
+
+                % irc_hooks:on_irc_msg(C,A,say(T)):-!,irc_hooks:on_irc_msg(T).
+
 ircEvent(Channel,Agent,Event):- say(_) \= Event, once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
 
 ircEvent(Channel,Agent,say(Event)):- once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
-
-
-ircEvent(Channel,Agent,ctcp(ACTION,W)):- maybe_chat_command(Channel,Agent,ctcp(ACTION),W).
-   
-ircEvent(Channel,Agent,say(W)):- maybe_chat_command(Channel,Agent,say,W).
 
 
 % Say -> Call
@@ -623,102 +619,15 @@ ircEvent(Channel,Agent,say(W)):-
 
 % Call -> call_with_results
 ircEvent(Channel,Agent,call(CALL,Vs)):-
- irc_process(Channel,Agent,
-   (use_agent_module(Agent),!,
-    b_setval('$variable_names',Vs),
-    b_setval('$term',CALL),
-    quietly(loop_check(irc_filtered(Channel,Agent,CALL,Vs))),
-    save_agent_module(Agent))).
-
+ 
+ with_dmsg_to_main((
+  thread_self(Self),tnodebug(Self),
+  use_agent_module(Agent),!,
+  b_setval('$variable_names',Vs),
+  quietly(loop_check(irc_filtered(Channel,Agent,CALL,Vs))),
+  save_agent_module(Agent))),!.
 
 ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
-
-ci_concat_text(Left,Right,All):- var(Right),!, string_lower(All,LAll),string_lower(Left,LLeft), 
-   sub_string(LAll, 0, _Len, After, LLeft),sub_string(All, _, After, 0, Right).
-
-is_irc_cmd_ok( Channel, Agent,_Cmd):- get_isRegistered(Channel,Agent, Type), Type==ignored, !, fail.
-is_irc_cmd_ok(_Channel,_Agent, Cmd):- atom_concat(irc_invoke_,Cmd,CmdOut), \+ current_predicate(irc_cmd:CmdOut/_), !, fail.
-is_irc_cmd_ok( Channel, Agent, Cmd):- get_isRegistered(Channel,Agent, Type), Type == Cmd.
-is_irc_cmd_ok( Channel, Agent,_Cmd):- get_isRegistered(Channel,Agent, execute),!.
-
-trim_text(Text,L,_,TextO):- sub_term(T,L),L\=[],atomic(T),string_concat(T,MText,Text),!,trim_text(MText,TextO).
-trim_text(Text,_,R,TextO):- sub_term(T,R),R\=[],atomic(T),string_concat(MText,T,Text),!,trim_text(MText,TextO).
-trim_text(Text,_,_, Text):-!.
-
-trim_text(Text,TextO):- trim_text(Text,ltrim(","," ",":"),rtrim(","," ",":"),TextO).
-
-% attention (notice the fail to disable)
-irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W1):- string_concat(W2,".",W1),!,irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W2).
-irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W1):- string_lower(W1,W2),W1\==W2,!,irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W2).
-irc_cmd:irc_invoke_bot(Channel,Agent,_Modality,""):- 
-   show_call_backs(Channel,Agent).
-irc_cmd:irc_invoke_bot(Channel,Agent,_Modality,"goodbye"):- 
-   retractall(lmconf:chat_isWith(_Type,_OldChannel,Agent)),!,   
-   say(Channel,s([goodbye,Agent,'I will not answer you in',Channel])).
-irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W1):- string_concat("+",W2,W1),!,do_and_show_fallbacks(+,Channel,Agent, Modality,W2).
-irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W1):- string_concat("-",W2,W1),!,do_and_show_fallbacks(-,Channel,Agent, Modality,W2).
-irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W2):- maybe_chat_command(Channel,Agent, Modality,W2),!.
-irc_cmd:irc_invoke_bot(Channel,Agent, Modality,W2):- maybe_chat_command(Channel,Agent, Modality,W2," "),!.
-
-into_what(W2, _):- \+ atom(W2),!,fail.
-into_what('_',Type):- Type=_.
-into_what('all',Type):- Type=_.
-into_what(W2,Type):- Type=W2.
-
-subst_string(In,Before,After,Out):- atomics_to_string(List,Before,In),atomics_to_string(List,After,Out).
-
-do_and_show_fallbacks(PM,Channel,Agent, Modality,W2):- 
-  do_fallbacks(PM,Channel,Agent, Modality,W2),
-  show_call_backs(Channel,Agent).
-
-show_call_backs(Channel,Agent):- 
-  findall(Type,(get_isRegistered(Channel2,Agent2, Type),Agent2==Agent,Channel2==Channel),List),
-  ( List==[]-> say(Channel,s([hi,Agent,'no callbacks in',Channel, 'are set'])) ;
-    List=[all]-> say(Channel,s([Agent,'all callbacks in',Channel,'until you say "goodbye"']));
-    List=[One]-> say(Channel,s([Agent,'one callback in',Channel,': "', One, '" which is your default'])) ;
-    say(Channel,s([Agent,'callbacks in',Channel,': ', List]))).
-
-
-:- baseKB:import(eggdrop:say/2).
-
-do_fallbacks(_,_Channel,_Agent,_Modality,''):-!.
-do_fallbacks(+,Channel,Agent,_Modality,W2):- into_what(W2,Type), ignore((retract(lmconf:chat_isWith(Type,Channel,Agent)),fail)),
-                                                 asserta(lmconf:chat_isWith(W2,Channel,Agent)).
-do_fallbacks(-,Channel,Agent,_Modality,W2):- into_what(W2,Type), ignore((retract(lmconf:chat_isWith(Type,Channel,Agent)),fail)), 
-                                                 !.
-do_fallbacks(PM,Channel,Agent, Modality,W2):- subst_string(W2,","," ",W3),atomic_list_concat(ListR," ",W3),
-                                        reverse(ListR,List),maplist(do_fallbacks(PM,Channel,Agent, Modality),List).
-
-maybe_chat_command(Channel,Agent, Modality,W0):- trim_text(W0,W1),W1\==W0, !, maybe_chat_command(Channel,Agent, Modality,W1).
-maybe_chat_command(Channel,Agent, Modality,W1):- bot_nick(BotNick), ci_concat_text(BotNick,Right,W1),trim_text(Right,W2),do_irc_cmd_now(Channel,Agent, Modality,bot,W2).
-maybe_chat_command(Channel,Agent, Modality,W1):- string_concat('.',W,W1), maybe_chat_command(Channel,Agent, Modality,W," "),!.
-maybe_chat_command(Channel,Agent, Modality,W1):- maybe_chat_command(Channel,Agent, Modality,W1,":"),!.
-maybe_chat_command(Channel,Agent,_Modality,W1):- atom_contains(W1,"goodbye"),retractall(lmconf:chat_isWith(_Any_,Channel,Agent)), fail.
-maybe_chat_command(Channel,Agent, Modality,W1):- do_irc_cmd_now(Channel,Agent, Modality,fallback,W1),!.
-
-maybe_chat_command(Channel,Agent, Modality,W, Split):-
-     sub_string(W, Before, 1, After, Split), 
-     sub_atom(W, 0, Before, _, TxtBefore), 
-     filter_chars(is_printing_alpha_char, TxtBefore, Cmd0), TxtBefore==Cmd0, 
-     downcase_atom(Cmd0, Cmd),
-     is_irc_cmd_ok(Channel,Agent,Cmd),
-     sub_string(W, _, After, 0, TxtAfter),
-     trim_text(TxtAfter,Text),
-     do_irc_cmd_now(Channel,Agent, Modality,Cmd,Text).
-
-do_irc_cmd_now(Channel,Agent, Modality,Cmd,W1):- downcase_atom(Cmd,DC), DC\==Cmd,!, do_irc_cmd_now(Channel,Agent, Modality,DC,W1).
-do_irc_cmd_now(Channel,Agent, Modality,Cmd,W1):- 
-  trim_text(W1,Args),
-  atom_concat(irc_invoke_,Cmd,CmdOut),
-  P=..[CmdOut,Channel,Agent, Modality,Args],  
-  predicate_property(irc_cmd:P, defined),!,
-  irc_process(Channel,Agent,call(irc_cmd:P)).
-
-irc_process(_Channel,_Agent,G):-
-  with_dmsg_to_main(( thread_self(Self),tnodebug(Self), call(G))).
-
-
-
 
 :- dynamic(lmconf:chat_isModule/3).
 
@@ -868,18 +777,15 @@ add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B)
 %
 % Irc Event Call Filtered.
 %
-irc_filtered(Channel,Agent,_CALL,_Vs):- get_isRegistered(Channel,Agent, Type), Type==ignored, !.
-irc_filtered(_Channel,_Agent,CALL,_Vs):- var(CALL),!.
+irc_filtered(_Channel,_Agent,CALL,_Vs):-var(CALL),!.
 irc_filtered(_Channel,_Agent,end_of_file,_Vs):-!.
 irc_filtered(_Channel,_Agent,(H :- B ),Vs):- add_maybe_static((H :- B),Vs),!.
 irc_filtered(Channel,Agent,((=>(H)) :- B ),Vs):-
-  ((=>(H :- B)) \== ((=>(H)) :- B )),!,
-  irc_filtered(Channel,Agent,(=>(H :- B)),Vs).
-
+  ((=>(H :- B)) \== ((=>(H)) :- B )),!,irc_filtered(Channel,Agent,(=>(H :- B)),Vs).
 irc_filtered(Channel,Agent,'?-'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
 
 irc_filtered(Channel,Agent,AIN,Vs):- is_ained(AIN),ircEvent_call(Channel,Agent,ain_expanded(AIN),Vs),!.
-irc_filtered(Channel,Agent,lispy(Lispy),Vs):- get_isRegistered(Channel,Agent, execute),
+irc_filtered(Channel,Agent,lispy(Lispy),Vs):- lmconf:chat_isRegistered(Channel,Agent,kifbot),
   ircEvent_call(Channel,Agent,lisp_compiled_eval([print,Lispy],_R),Vs),!.
 /*
 irc_filtered(Channel,Agent,lispy(Lispy),Vs):- ircEvent_call(Channel,Agent,lisp_compiled_eval([print,Lispy],R),['LispRes'=R|Vs]),!.
@@ -887,7 +793,7 @@ irc_filtered(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_call_functor
    (current_predicate(lisp_call/3) -> ircEvent_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
      my_wdmsg(cant_ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs))).
 */
-irc_filtered(Channel,Agent,CALL,Vs):- get_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.      
+irc_filtered(Channel,Agent,CALL,Vs):- lmconf:chat_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.      
 irc_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!.
 
 is_ained(AIN):- \+ compound(AIN),!,fail.
@@ -1175,7 +1081,7 @@ call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
 %
 call_with_results_0(CMD,Vs):-
  set_varname_list( Vs),
- % b_setval('$variable_names',Vs),
+ b_setval('$variable_names',Vs),
  flag(num_sols,_,0),
  (call_with_results_2(CMD,Vs) *->
   (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
@@ -1402,7 +1308,7 @@ sayq(D):-sformat(S,'~q',[D]),!,say(S),!.
 
 %% say( ?D) is det.
 %
-% Modality.
+% Say.
 %
 :- reg_egg_builtin(say/1).
 say(D):- t_l:default_channel(C),say(C,D),!.
@@ -1418,35 +1324,31 @@ not_bot(A,Bot,A):- atom_contains(Bot,'logicmoo-').
 
 %% say( ?OutStream, ?Channel, ?List) is det.
 %
-% Modality List.
+% Say List.
 %
 
 %% say( ?Agent, ?Out) is det.
 %
-% Modality Prefixed.
+% Say Prefixed.
 %
 say(C:C,Text):-nonvar(C),!,say(C,Text).
 say(A1:A2,Out):- not_bot(A1,A2,A3),say(A3,Out),!.
 say(C:A,Text):- nonvar(A), !, locally(t_l:session_id(A), say(C,Text)).
- 
-say( Channel,Data):- (var(Data);cyclic_term(Data)),!,sformat(String,'~p',[Data]),say(Channel,String).
-say( Channel,[Channel,': '|Data]):-nonvar(Data),say(Channel,Data),!.
-say( Channel,Out):- string(Out),!, any_to_codelist(Out, Codes), privmsg( Channel,Codes).   
-say(_Channel,[]).                 
+
+say(Channel,Data):- var(Data),!,sformat(String,'~p',[Data]),say(Channel,String).
+say(Channel,[Channel,': '|Data]):-nonvar(Data),say(Channel,Data),!.
+say(Channel,Out):- string(Out),!, any_to_codes(Out, Codes), privmsg(Channel,Codes).   
+say(_Channel,[]).
 say(_Channel,['']):- !.
-say( Channel,[S,'']):-!, say( Channel,[S]).
-say( Channel,PlString):- is_charlist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
-say( Channel,PlString):- is_codelist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
-say( Channel,[N|L]):- (\+ list(L); compound(N) ), !, say( Channel,each([N|L])).
-say(_Channel,each(NIL)):- NIL == [],!.
-say( Channel,each(OUT)):- var(OUT), !, say( Channel,OUT),!.
-say( Channel,each([N|L])):- say( Channel,N), say( Channel,each(L)),!.
-say( Channel,List):- is_list(List),catch_ignore(any_to_string(List,String)),!,say(Channel,String).
-say( Channel,s(Data)):- catch_ignore(any_to_string(Data,String)),!,say(Channel,String).
-say( Channel,NotString):- catch_ignore(egg_to_string(NotString,String)),!,say(Channel,String).
-say( Channel,Data):- sformat(String,'~p',[Data]),say(Channel,String).
+say(Channel,[S,'']):-!, say(Channel,[S]).
+say(Channel,PlString):- is_charlist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
+say(Channel,PlString):- is_codelist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
+say(Channel,[N|L]):- say(Channel,N), say(Channel,L),!.
+say(Channel,NotString):- catch_ignore(egg_to_string(NotString,String)),!,say(Channel,String).
+say(Channel,Data):- sformat(String,'~p',[Data]),say(Channel,String).
 %say(Channel,Data):- \+(is_list(Channel)),text_to_string_safe(Channel, S),string_codes(S,Codes),!,say(Codes,Data),!.
 % say(Channel,[S|L]):- \+ is_codelist([S|L]), on_x_fail(atom_string(N,S)),atom_concat('\t',Front,N), atom_concat('   ',Front,NEW),!,say(Channel,[NEW|L]).
+
 
 %% get_session_prefix( ?ID) is det.
 %
@@ -1524,7 +1426,7 @@ privmsg(Channel,Fmt,Args):-
 privmsg(Channel:_,Text):-nonvar(Channel),!,privmsg(Channel,Text).
 privmsg(_:Channel,Text):-nonvar(Channel),!,privmsg(Channel,Text).
 privmsg(Channel, [] ):- !, privmsg_prefixed(Channel,'  ').
-privmsg(Channel,Text):- \+ is_codelist(Text), !, any_to_codelist(Text,Codes), privmsg(Channel, Codes). 
+privmsg(Channel,Text):- \+ is_codelist(Text), !, any_to_codes(Text,Codes), privmsg(Channel, Codes). 
 privmsg(Channel,Text):- append(List,[Char],Text), code_type(Char, end_of_line), !, privmsg(Channel,List).
 privmsg(Channel,Codes):- append(LCodes,[10|RCodes],Codes), privmsg(Channel,LCodes), privmsg(Channel,RCodes).
 privmsg(Channel,Codes):- length(Codes,Len), Len>430,
@@ -1534,7 +1436,7 @@ privmsg(Channel,Codes):- privmsg_prefixed(Channel,Codes).
 
 
 privmsg_prefixed(Channel, Data):- squelch_empty('$privmsg_prefixed',Channel,Data),!.
-privmsg_prefixed(Channel, Text) :- any_to_codelist(Text, Out), 
+privmsg_prefixed(Channel, Text) :- any_to_codes(Text, Out), 
    ((get_session_prefix(Prefix), \+ same_channels(Prefix,Channel)) ->
      (format(codes(Data),'~w: ~s',[Prefix,Out]),privmsg1(Channel,Data));privmsg1(Channel,Out)).
 
@@ -1555,7 +1457,7 @@ privmsg1(Channel,Text):-
 %
 privmsg2(Channel,Data):- squelch_empty('$privmsg2',Channel,Data),!.
 privmsg2(Channel,Text):- sleep(0.2), 
-   any_to_codelist(Channel, EChannel), escape_quotes(Text, EText),
+   any_to_codes(Channel, EChannel), escape_quotes(Text, EText),
    put_egg('\n.tcl putquick "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
 /*
 privmsg2(Channel,Text):- egg_to_string(Channel,CS),escape_quotes(Text,N),
@@ -1577,7 +1479,7 @@ privmsg2(Channel,Text):- egg_to_string(Channel,CS),escape_quotes(Text,N),
 %
 put_notice(Channel,Data):- squelch_empty('$put_notice',Channel,Data),!.
 put_notice(Channel,Text):- 
-   any_to_codelist(Channel, EChannel), escape_quotes(Text, EText),
+   any_to_codes(Channel, EChannel), escape_quotes(Text, EText),
    put_egg('\n.tcl putserv "NOTICE ~s :~s"\n',[EChannel, EText]),!.
 
 
@@ -1608,11 +1510,22 @@ put_egg(X,Y):-once(egg:stdio(_Agent,_InStream,OutStream)),
 
 
 
+
+any_to_codes(Data,Codes):- notrace(any_to_codelist(Data,Codes)).
+
+any_to_codelist(Data,Codes):- var(Data),!, sformat(String,'~w',Data),string_codes(String,Codes),!.
+any_to_codelist([],[]):-!.
+any_to_codelist(Codes,Codes):- is_codelist(Codes),!.
+any_to_codelist(String,Codes):- string(String),!,string_codes(String,Codes).
+any_to_codelist(Chars,Codes):- is_charlist(Chars),text_to_string(Chars,String),string_codes(String,Codes).
+any_to_codelist(Chars,Codes):- atomic(Chars),text_to_string_safe(Chars,String),string_codes(String,Codes).
+any_to_codelist(Data,Codes):- sformat(String,'~p',Data),!,string_codes(String,Codes).
+
 %% escape_quotes( ?LIST, ?ISO) is det.
 %
 % Escape Quotes.
 %
-escape_quotes(Any,LISTO):- any_to_codelist(Any,LIST),
+escape_quotes(Any,LISTO):- any_to_codes(Any,LIST),
    list_replace_egg(LIST,92,[92,92],LISTM),
    list_replace_egg(LISTM,34,[92,34],LISTM2),
    list_replace_egg(LISTM2,91,[92,91],LIST3),
