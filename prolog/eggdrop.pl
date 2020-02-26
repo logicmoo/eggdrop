@@ -1,15 +1,15 @@
 :- module(eggdrop, [egg_go_maybe/0,
-  add_maybe_static/2,bot_nick/1,call_in_thread/2,call_with_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
+  add_maybe_static/2,bot_nick/1,call_in_thread/2,call_for_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
   consultation_thread/2,ctcp/6,ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,
   egg_go_fg/0,eggdropConnect/0,eggdropConnect/2,eggdropConnect/4,eggdrop_bind_user_streams/0,escape_quotes/2,flush_all_output/0,
   privmsg_prefixed/2,
   privmsg_prefixed/2,
   privmsg1/2,
   privmsg2/2,
-  format_nv/2,get2react/1,get_session_prefix/1,ignore_catch/1,ignored_source/1,ircEvent/3,ircEvent_call/4,irc_filtered/4,
+  format_nv/2,get2react/1,get_session_prefix/1,ignore_catch/1,ignored_source/1,ircEvent/3,irc_really_call/4,irc_filtered_call/4,
   irc_receive/5,is_callable_egg/1,is_empty/1,is_lisp_call_functor/1,join/4,list_replace_egg/4,msgm/5,my_wdmsg/1,
   part/5,privmsg/2,privmsg_session/2,pubm/5,put_notice/2,read_codes_and_send/2,read_each_term_egg/3,read_from_agent_and_send/2,
-  read_one_term_egg/3,recordlast/3,remove_anons/2,remove_pred_egg/3,say/1,say/2,say/2,
+  read_one_term_egg/4,recordlast/3,remove_anons/2,remove_pred_egg/3,say/1,say/2,say/2,
   sayq/1,show_thread_exit/0,put_egg/1,put_egg/2,unreadable/1,unsafe_preds_egg/3,
   update_changed_files_eggdrop/0,vars_as_comma/0,vars_as_list/0,with_error_channel/2,with_error_to_output/1,with_input_channel_user/3,with_io/1,with_no_input/1,
   with_output_channel/2,with_rl/1,egg:stdio/3,lmcache:vars_as/1,ignored_channel/1,lmconf:chat_isWith/3,lmconf:chat_isRegistered/3,last_read_from/3,
@@ -28,10 +28,13 @@ lmconf:irc_bot_nick("PrologMUD").
 reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
   baseKB:assert_if_new(baseKB:rtArgsVerbatum(PIs)),export(PIs).
 
+:- if(exists_source(irc_hooks)).
 :- reexport(irc_hooks).
+:- endif.
 
 :- use_module(library(predicate_streams)).
-:- use_module(library(clpfd),except([sum/3,op(_,_,_)])).
+%:- use_module(library(clpfd),except([sum/3])).
+%:- use_module(library(clpfd),except([sum/3,op(_,_,_)])).
 
 :- if((fail,exists_source(library(atts)))).
 :- set_prolog_flag(metaterm,true).
@@ -83,9 +86,11 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 
 :- meta_predicate
         call_in_thread(+,0),
-        call_with_results_0(0, ?),
-        call_with_results_2(0, ?),
-        call_with_results_3(0, ?),
+        call_for_results(0, ?),
+        call_for_results_0(0, ?),
+        call_for_results_1(0, ?),
+        call_for_results_2(0, ?),
+        call_for_results_3(0, ?),
         ignore_catch(0),
         with_error_channel(+, 0),
         with_error_to_output(0),
@@ -187,9 +192,9 @@ ctrl_port(3334).
 :- endif.
 
 
- :- meta_predicate call_with_results_3(0,*).
- :- meta_predicate call_with_results_2(0,*).
- :- meta_predicate call_with_results_0(0,*),with_rl(0).
+ :- meta_predicate call_for_results_3(0,*).
+ :- meta_predicate call_for_results_2(0,*).
+ :- meta_predicate call_for_results_1(0,*),with_rl(0).
 
 
 :- module_transparent(ircEvent/3).
@@ -234,7 +239,7 @@ lmconf:chat_isRegistered("#logicmoo_mud",_,mud).
 
 get_isRegistered(Channel,Agent,What):- lmconf:chat_isRegistered(Channel,Agent,What).
 
-:- export((egg_go/0,ircEvent/3,call_with_results/2,get_isRegistered/3,lmconf:chat_isRegistered/3)).
+:- export((egg_go/0,ircEvent/3,call_for_results/2,get_isRegistered/3,lmconf:chat_isRegistered/3)).
 % ===================================================================
 % Deregister unsafe preds
 % ===================================================================
@@ -575,11 +580,8 @@ is_printing_alpha_char(X):- char_type(X,alpha),!.
 % Irc Event.
 %
 ircEvent(DEST,User,Stuff):- string(User),string_lower(User,DUser),User\=@=DUser,!,ircEvent(DEST,DUser,Stuff).
-
 ircEvent(DEST,User,Stuff):- atom(User),downcase_atom(User,DUser),User\=@=DUser,!,ircEvent(DEST,DUser,Stuff).
-
-ircEvent(DEST,User,say(W)):- \+ string(W),
-  catch_ignore(text_to_string(W,S)),!,ircEvent(DEST,User,say(S)).
+ircEvent(DEST,User,say(W)):- \+ string(W), catch_ignore(text_to_string(W,S)),!,ircEvent(DEST,User,say(S)).
 
 %  "<@\003\1Douglas Miles\017\> ?- member(Z,[a])."
 
@@ -600,38 +602,30 @@ ircEvent(DEST,User,say(W)):-
 
 % ignore some inputs
 ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,!.
-
-ircEvent(Channel,Agent,Event):- say(_) \= Event, once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
-
-ircEvent(Channel,Agent,say(Event)):- once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))),fail.
-
-
-ircEvent(Channel,Agent,ctcp(ACTION,W)):- maybe_chat_command(Channel,Agent,ctcp(ACTION),W).
-   
-ircEvent(Channel,Agent,say(W)):- maybe_chat_command(Channel,Agent,say,W).
+ircEvent(Channel,Agent,Event) :- 
+   ignore(once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event))))),
+   ignore(ircEventNow(Channel,Agent,Event)),
+   recordlast(Channel,Agent,Event),fail.
 
 
 % Say -> Call
-ircEvent(Channel,Agent,say(W)):-
+ircEventNow(Channel,Agent,say(W)):-
  % with_dmsg_to_main
- ((
-   forall(
-   (read_egg_term(W,CMD,Vs),CMD\==end_of_file),
-   % eggdrop:read_each_term_egg(W,CMD,Vs),
-   ircEvent(Channel,Agent,call(CMD,Vs))))),!.
+  DidAny = did(false),
+  source_and_module_for_agent(Agent,SourceModule,_CallModule),
+  forall(
+    read_egg_term(SourceModule,W,CALL,Vs), % read_each_term_egg(W,CALL,Vs)
+     (irc_filtered_call(Channel,Agent,CALL,Vs),nb_setarg(1,DidAny,true))),
+  ((DidAny = did(true)) -> ! ; fail).
 
 
-% Call -> call_with_results
-ircEvent(Channel,Agent,call(CALL,Vs)):-
- irc_process(Channel,Agent,
-   (use_agent_module(Agent),!,
-    b_setval('$variable_names',Vs),
-    b_setval('$term',CALL),
-    quietly(loop_check(irc_filtered(Channel,Agent,CALL,Vs))),
-    save_agent_module(Agent))).
+ircEventNow(Channel,Agent,ctcp(ACTION,W)):- maybe_chat_command(Channel,Agent,ctcp(ACTION),W).
+ircEventNow(Channel,Agent,say(W)):- maybe_chat_command(Channel,Agent,say,W).
+% Call -> call_for_results
+ircEventNow(Channel,Agent,call(CALL,Vs)):- irc_filtered_call(Channel,Agent,CALL,Vs).
+ircEventNow(Channel,User,Method):- my_wdmsg(unused(ircEvent(Channel,User,Method))).
 
 
-ircEvent(Channel,User,Method):-recordlast(Channel,User,Method), my_wdmsg(unused(ircEvent(Channel,User,Method))).
 
 ci_concat_text(Left,Right,All):- var(Right),!, string_lower(All,LAll),string_lower(Left,LLeft), 
    sub_string(LAll, 0, _Len, After, LLeft),sub_string(All, _, After, 0, Right).
@@ -714,8 +708,11 @@ do_irc_cmd_now(Channel,Agent, Modality,Cmd,W1):-
   predicate_property(irc_cmd:P, defined),!,
   irc_process(Channel,Agent,call(irc_cmd:P)).
 
-irc_process(_Channel,_Agent,G):-
-  with_dmsg_to_main(( thread_self(Self),tnodebug(Self), call(G))).
+irc_process(Channel,Agent,G):- 
+  with_error_channel(Agent,
+   with_dmsg_to_main(( thread_self(Self),tnodebug(Self), 
+     with_output_channel(Channel,
+       with_no_input(G))))).
 
 
 
@@ -732,16 +729,31 @@ use_agent_module(AgentS):-
 
 save_agent_module(AgentS):- any_to_atom(AgentS,Agent), 
    retractall(lmconf:chat_isModule(Agent,_,_)), 
-   '$set_source_module'(SourceModule,SourceModule),
-   '$module'(CallModule,CallModule),
+   once('$current_source_module'(SourceModule);'$set_source_module'(SourceModule,SourceModule)),
+   once('$current_typein_module'(CallModule);'$module'(CallModule,CallModule)),
    asserta(lmconf:chat_isModule(Agent,SourceModule,CallModule)).
 
 source_and_module_for_agent(AgentS,SourceModule,CallModule):- 
     any_to_atom(AgentS,Agent), 
     lmconf:chat_isModule(Agent,SourceModule,CallModule),!.
-source_and_module_for_agent(AgentS,Module,Module):- 
+source_and_module_for_agent(AgentS,SourceModule,CallModule):- 
     any_to_atom(AgentS,Agent), 
-    agent_module(Agent,Module),!.
+    create_agent_module(Agent,SourceModule),
+    create_agent_module(Agent,CallModule),    
+    asserta(lmconf:chat_isModule(Agent,SourceModule,CallModule)).
+    
+create_agent_module(AgentS,AgentModule):-    
+   any_to_atom(AgentS,Agent),
+   (var(AgentModule) -> AgentModule = Agent ; true),
+    % too many people wish to define themselves
+
+   
+   (AgentModule \==Agent -> add_import_module(AgentModule,Agent,start) ; true),
+   promiscuous_module(AgentModule).
+
+
+
+:- create_agent_module(dmiles,_).
 
 
 :- reg_egg_builtin(unreadable/1).
@@ -859,41 +871,59 @@ add_maybe_static((H:-B),_Vs):- must_det_l((convert_to_dynamic(H),assertz(((H:-B)
 % ===================================================================
 % IRC CALL/1
 % ===================================================================
-:-module_transparent(irc_filtered/4).
-:- reg_egg_builtin(irc_filtered/4).
+:-module_transparent(irc_filtered_call/4).
+:- reg_egg_builtin(irc_filtered_call/4).
 
 
 
-%% irc_filtered( ?Channel, ?Agent, ?CALL, ?Vs) is det.
+%% irc_filtered_call( ?Channel, ?Agent, ?CALL, ?Vs) is det.
 %
 % Irc Event Call Filtered.
 %
-irc_filtered(Channel,Agent,_CALL,_Vs):- get_isRegistered(Channel,Agent, Type), Type==ignored, !.
-irc_filtered(_Channel,_Agent,CALL,_Vs):- var(CALL),!.
-irc_filtered(_Channel,_Agent,end_of_file,_Vs):-!.
-irc_filtered(_Channel,_Agent,(H :- B ),Vs):- add_maybe_static((H :- B),Vs),!.
-irc_filtered(Channel,Agent,((=>(H)) :- B ),Vs):-
+irc_filtered_call(Channel,Agent,_CALL,_Vs):- get_isRegistered(Channel,Agent, Type), Type==ignored, !, fail.
+irc_filtered_call(_Channel,_Agent,CALL,_Vs):- var(CALL),!,fail.
+irc_filtered_call(_Channel,_Agent,end_of_file,_Vs):-!,fail.
+irc_filtered_call(_Channel,_Agent,(H :- B ),Vs):- 
+  add_maybe_static((H :- B),Vs),!.
+irc_filtered_call(Channel,Agent,((=>(H)) :- B ),Vs):-
   ((=>(H :- B)) \== ((=>(H)) :- B )),!,
-  irc_filtered(Channel,Agent,(=>(H :- B)),Vs).
+  irc_filtered_call(Channel,Agent,(=>(H :- B)),Vs).
 
-irc_filtered(Channel,Agent,'?-'(CALL),Vs):- nonvar(CALL),!,ircEvent_call(Channel,Agent,CALL,Vs),!.
+irc_filtered_call(Channel,Agent,'?-'(CALL),Vs):- !, nonvar(CALL), 
+  irc_really_call(Channel,Agent,call_for_results(CALL,Vs), Vs).
 
-irc_filtered(Channel,Agent,AIN,Vs):- is_ained(AIN),ircEvent_call(Channel,Agent,ain_expanded(AIN),Vs),!.
-irc_filtered(Channel,Agent,lispy(Lispy),Vs):- get_isRegistered(Channel,Agent, execute),
-  ircEvent_call(Channel,Agent,lisp_compiled_eval([print,Lispy],_R),Vs),!.
+irc_filtered_call(Channel,Agent,lispy(Lispy),Vs):- get_isRegistered(Channel,Agent, execute),
+  irc_really_call(Channel,Agent,lisp_compiled_eval([print,Lispy],_R),Vs),!.
+
+irc_filtered_call(Channel,Agent,AIN,Vs):- is_ained(AIN),!,irc_really_call(Channel,Agent,ain_expanded(AIN),Vs),!.
 /*
-irc_filtered(Channel,Agent,lispy(Lispy),Vs):- ircEvent_call(Channel,Agent,lisp_compiled_eval([print,Lispy],R),['LispRes'=R|Vs]),!.
-irc_filtered(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_call_functor(S),!,
-   (current_predicate(lisp_call/3) -> ircEvent_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
+irc_filtered_call(Channel,Agent,lispy(Lispy),Vs):- irc_really_call(Channel,Agent,lisp_compiled_eval([print,Lispy],R),['LispRes'=R|Vs]),!.
+irc_filtered_call(Channel,Agent,[S|TERM],Vs):- is_list([S|TERM]),is_lisp_call_functor(S),!,
+   (current_predicate(lisp_call/3) -> irc_really_call(Channel,Agent,lisp_call([S|TERM],Vs,R),['Result'=R|Vs]);
      my_wdmsg(cant_ircEvent_call_filtered(Channel,Agent,[S|TERM],Vs))).
 */
-irc_filtered(Channel,Agent,CALL,Vs):- get_isRegistered(Channel,Agent,executeAll),!,ircEvent_call(Channel,Agent,CALL,Vs),!.      
-irc_filtered(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!.
+% irc_filtered_call(Channel,Agent,CALL,Vs):- get_isRegistered(Channel,Agent,executeAll),!,irc_really_call(Channel,Agent,CALL,Vs),!.      
+irc_filtered_call(Channel,Agent,CALL,Vs):- my_wdmsg(unused_ircEvent_call_filtered(Channel,Agent,CALL,Vs)),!,fail.
 
 is_ained(AIN):- \+ compound(AIN),!,fail.
-is_ained(==>(_,_)).
-is_ained(=>(_,_)).
 is_ained(==>(_)).
+is_ained(==>(_,_)).
+is_ained(<==>(_,_)).
+is_ained(=>(_)).
+is_ained(=>(_,_)).
+is_ained(<=>(_,_)).
+is_ained(AIN):- is_ain_clause(AIN).
+is_ained(M:A):-atom(M),!,is_ained(A).
+
+
+is_ained((_ :- _)).
+is_ained((_ --> _)).
+is_ained2(user:_).
+is_ained2(exists(_,_)).
+is_ained2(all(_,_)).
+is_ained2(q(_,_,_)).
+
+
 
 %% is_lisp_call_functor( ?FUNCTOR) is det.
 %
@@ -903,43 +933,30 @@ is_lisp_call_functor('?-').
 is_lisp_call_functor('?>').
 
 
-:-module_transparent(ircEvent_call/4).
-:- reg_egg_builtin(ircEvent_call/4).
+:-module_transparent(irc_really_call/4).
+:- reg_egg_builtin(irc_really_call/4).
 
-agent_module(AgentS,AgentModule):- 
-   any_to_atom(AgentS,AgentModule),
-   add_import_module(AgentModule,baseKB,start),
-   add_import_module(AgentModule,eggdrop,start),
-   add_import_module(AgentModule,lmconf,end),
-   add_import_module(AgentModule,user,end),
-   add_import_module(AgentModule,system,end).
-
-
-%% ircEvent_call( ?Channel, ?Agent, ?CALL, ?Vs) is det.
+%% irc_really_call( ?Channel, ?Agent, ?CALL, ?Vs) is det.
 %
 % Irc Event Call.
 %
-ircEvent_call(Channel,Agent,CALL,Vs):-  fail,
- my_wdmsg(cdo_ircEvent_call(Channel,Agent,CALL,Vs)),
- call_cleanup(call_with_results(CALL,Vs),flush_output).
 
 
-ircEvent_call(Channel,Agent,Query,Bindings):-
-   source_and_module_for_agent(Agent,SourceModule,CallModule),
-   agent_module(Agent,Module),
-   (SourceModule==Module-> CallModule= AgentModule ;SourceModule=AgentModule),
-     '$toplevel':call_expand_query(Query, ExpandedQuery,
-                          Bindings, ExpandedBindings)
-            ->  AgentModule:expand_goal(ExpandedQuery, Goal),
- my_wdmsg(do_ircEvent_call(Channel,Agent,Goal,ExpandedBindings)),
-  % debug(_),
-  % gtrace,
-  with_output_channel(Channel,
+irc_really_call(Channel,Agent,CALL, Vs):-
+   source_and_module_for_agent(Agent, SourceModule, CallModule),
+   (SourceModule == CallModule -> AgentModule = CallModule ; AgentModule = (SourceModule:CallModule)),
+   my_wdmsg(irc_really_call(Channel,Agent,AgentModule:CALL,Vs)),
+  % debug(_), % gtrace,
+   irc_process(Channel,Agent,  
      with_error_channel(Channel,
-       (nop((stream_property(X,alias(current_output)),set_stream(X,alias(user_output)))),
-         with_no_input((
-          AgentModule:catch(call_with_results(Goal,ExpandedBindings),E,
-          (((my_wdmsg(E),say(Agent,[Channel,': ',E])),!,fail)))))))),!.
+       setup_call_cleanup(
+       (b_setval('$variable_names',Vs), b_setval('$term',CALL), 
+                    use_agent_module(Agent)),
+             (nop((stream_property(X,alias(current_output)),set_stream(X,alias(user_output)))),            
+                AgentModule:catch(CALL,E,
+                 (((my_wdmsg(E),say(Agent,[Channel,': ',E])),!,fail)))),
+                    save_agent_module(Agent)))),
+   !.
 
   
 
@@ -1147,67 +1164,73 @@ remove_anons([],[]).
 remove_anons([N=_|Vs],VsRA):-atom_concat('_',_,N),!,remove_anons(Vs,VsRA).
 remove_anons([N=V|Vs],[N=V|VsRA]):-remove_anons(Vs,VsRA).
 
-:-module_transparent(call_with_results/2).
-:- reg_egg_builtin(call_with_results/2).
+:-module_transparent(call_for_results/2).
+:- reg_egg_builtin(call_for_results/2).
 
 
 
-%% call_with_results( ?CMDI, ?Vs) is det.
+%% call_for_results( ?CMDI, ?Vs) is det.
 %
 % Call Using Results.
 %
-call_with_results(CMDI,Vs):- remove_anons(Vs,VsRA),!,
- ignore((
- b_setval('$term', (vars(Vs):-CMD)), /* DRM: added for expansion hooks*/
+
+call_for_results(Query,Bindings):-
+     '$toplevel':call_expand_query(Query, ExpandedQuery, Bindings, ExpandedBindings), !,
+     ignore(call_for_results_0(ExpandedQuery,ExpandedBindings)).
+
+
+call_for_results_0(CMDI,Vs):- remove_anons(Vs,VsRA),!, 
+ % BORKED b_setval('$term', (vars(Vs):-CMD)), /* DRM: added for expansion hooks*/
  nodebugx((
-  locally_tl(disable_px,(user:expand_goal(CMDI,CMD0),if_defined(fully_expand(CMD0,CMD),CMD0=CMD))),
-  (CMD==CMDI->true;my_wdmsg(call_with_results(CMDI->CMD))),
-    show_call(call_with_results_0(CMD,VsRA)))))),!.
+   locally_tl(disable_px,      expand_goal(CMDI,CMDM)),
+   locally_tl(disable_px,(user:expand_goal(CMDM, CMD))),
+  (CMD==CMDI->true;my_wdmsg(call_for_results(CMDI->CMD))),
+  show_call(call_for_results_1(CMD,VsRA)))),!.
 
-:-module_transparent(call_with_results_0/2).
-:- reg_egg_builtin(call_with_results_0/2).
+:-module_transparent(call_for_results_1/2).
+:- reg_egg_builtin(call_for_results_1/2).
 
 
 
-%% call_with_results_0( :GoalCMD, ?Vs) is det.
+%% call_for_results_1( :GoalCMD, ?Vs) is det.
 %
 % call Using results  Primary Helper.
 %
-call_with_results_0(CMD,Vs):-
+call_for_results_1(CMD,Vs):-
  set_varname_list( Vs),
  % b_setval('$variable_names',Vs),
  flag(num_sols,_,0),
- (call_with_results_2(CMD,Vs) *->
+ (call_for_results_2(CMD,Vs) *->
   (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
      (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'),write(' '),(X=true->write(det(YN,N));write(nondet(YN,N))))).
 
 
 
-:-module_transparent(call_with_results_2/2).
-:- reg_egg_builtin(call_with_results_2/2).
+:-module_transparent(call_for_results_2/2).
+:- reg_egg_builtin(call_for_results_2/2).
 
 
 
-%% call_with_results_2( :GoalCMDIN, ?Vs) is det.
+%% call_for_results_2( :GoalCMDIN, ?Vs) is det.
 %
 % call Using results  Extended Helper.
 %
-call_with_results_2(CMDIN0,Vs):-
+call_for_results_2(CMDIN0,Vs):-
   strip_module(CMDIN0,M,CMDIN),
    CMDIN = CMD,functor_h(CMD,F,A),A2 is A+1,CMD=..[F|ARGS],atom_concat(F,'_with_vars',FF),
    (M:current_predicate(FF/A2)-> (CMDWV=..[FF|ARGS],append_term(CMDWV,Vs,CCMD)); CCMD=CMD),!,
-   call_with_results_3(M:CCMD,Vs).
-call_with_results_2(CCMD,Vs):- call_with_results_3(CCMD,Vs).
+   call_for_results_3(M:CCMD,Vs).
+call_for_results_2(CCMD,Vs):- call_for_results_3(CCMD,Vs).
 
-:-module_transparent(call_with_results_3/2).
-:- reg_egg_builtin(call_with_results_3/2).
+:-module_transparent(call_for_results_3/2).
+:- reg_egg_builtin(call_for_results_3/2).
 
 
-%% call_with_results_3( :GoalCCMD, ?Vs) is det.
+%% call_for_results_3( :GoalCCMD, ?Vs) is det.
 %
 % Call Using Results Helper Number 3..
 %
-call_with_results_3(CCMD,Vs):-
+call_for_results_3(CCMD,Vs):-
    user:show_call(eggdrop,(CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
      (once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('% ')) ; (once(\+ \+ write_varvalues2(Vs)),N>28)))).
 
@@ -1409,8 +1432,9 @@ say(D):- t_l:default_channel(C),say(C,D),!.
 say(D):- say("#logicmoo",D),!.
 
 
-not_bot(Bot,A,A):- atom_contains(Bot,'logicmoo-').
-not_bot(A,Bot,A):- atom_contains(Bot,'logicmoo-').
+is_bot(Bot):- member(BotName,['logicmoo-','PrologM','bot','relay']),atom_contains(Bot,BotName). 
+not_bot(Bot,A,A):- is_bot(Bot),!.
+not_bot(A,Bot,A):- is_bot(Bot),!.
 
 :- export(say/2).
 
@@ -1554,19 +1578,19 @@ privmsg1(Channel,Text):-
 % Privmsg Extended Helper.
 %
 privmsg2(Channel,Data):- squelch_empty('$privmsg2',Channel,Data),!.
-privmsg2(Channel,Text):- sleep(0.2), 
-   any_to_codelist(Channel, EChannel), escape_quotes(Text, EText),
-   put_egg('\n.tcl putquick "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
+privmsg2(Channel,Text):- any_to_codelist(Channel, EChannel), any_to_codelist(Text, EText), privmsg3(EChannel, EText),!.
 /*
 privmsg2(Channel,Text):- egg_to_string(Channel,CS),escape_quotes(Text,N),
   sleep(0.2),sformat(S,'\n.tcl putquick "PRIVMSG ~s :~s"\n',[CS,N]),
   dmsg(put_egg(S)),
   put_egg(S),!.
+% privmsg2(Channel,Text):- escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~s" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
 */
 
+%privmsg3(EChannel, EText):- put_egg('\n.msg ~s ~s\n',[EChannel, EText]),!.
+privmsg3(EChannel,  Text):- sleep(0.2), escape_quotes(Text, EText), put_egg('\n.tcl putquick "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
+%privmsg3(EChannel,  Text):- escape_quotes(Text, EText), put_egg('\n.tcl putserv "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
 
-% privmsg2(Channel,Text):-on_f_log_ignore(format(OutStream,'\n.msg ~s ~s\n',[Channel,Text])).
-% privmsg2(Channel,Text):- escape_quotes(Text,N),ignore(catch(format(OutStream,'\n.tcl putserv "PRIVMSG ~s :~s" ;  return "noerror ."\n',[Channel,N]),_,fail)),!.
 
 
 
@@ -1687,20 +1711,20 @@ egg_nogo:-thread_signal(egg_go,thread_exit(requested)).
 
 
 
-%% read_one_term_egg( ?Stream, ?CMD, ?Vs) is det.
+%% read_one_term_egg( SourceModule, ?Stream, ?CMD, ?Vs) is det.
 %
 % Read One Term Egg.
 %
-:- reg_egg_builtin(read_one_term_egg/3).
-:-module_transparent(read_one_term_egg/3).
+:- reg_egg_builtin(read_one_term_egg/4).
+:-module_transparent(read_one_term_egg/4).
 
-read_one_term_egg(Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
-       with_stream_pos(InStream,show_entry(read_one_term_egg(InStream,CMD,Vs))).
-read_one_term_egg(Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
-% read_one_term_egg(Stream,CMD,Vs):- catch((input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
-read_one_term_egg(Stream,CMD,Vs):- catch((read_term(Stream,CMD,[variable_names(Vs),module(baseKB)])),_,fail),CMD\==end_of_file,!.
-read_one_term_egg(Stream,unreadable(String),_):-catch((read_stream_to_codes(Stream,Text),string_codes(String,Text)),_,fail),!.
-read_one_term_egg(Stream,unreadable(String),_):-catch((read_pending_input(Stream,Text,[]),string_codes(String,Text)),_,fail),!.
+read_one_term_egg( SourceModule,Stream,CMD,Vs):- \+ is_stream(Stream),l_open_input(Stream,InStream),!, 
+       with_stream_pos(InStream,show_entry(read_one_term_egg( SourceModule,InStream,CMD,Vs))).
+read_one_term_egg(_SourceModule,Stream,CMD,_ ):- at_end_of_stream(Stream),!,CMD=end_of_file,!.
+% read_one_term_egg( SourceModule,Stream,CMD,Vs):- catch((input_to_forms(Stream,CMD,Vs)),_,fail),CMD\==end_of_file,!.
+read_one_term_egg( SourceModule,Stream,CMD,Vs):- catch((read_term(Stream,CMD,[variable_names(Vs),module(SourceModule)])),_,fail),CMD\==end_of_file,!.
+read_one_term_egg(_SourceModule,Stream,unreadable(String),_):-catch((read_stream_to_codes(Stream,Text),string_codes(String,Text)),_,fail),!.
+read_one_term_egg(_SourceModule,Stream,unreadable(String),_):-catch((read_pending_input(Stream,Text,[]),string_codes(String,Text)),_,fail),!.
 
 
 :- reg_egg_builtin(read_each_term_egg/3).
@@ -1716,41 +1740,43 @@ read_each_term_egg(S,CMD,Vs):-
   show_failure(( l_open_input(S,Stream),  
       findall(CMD-Vs,(
        repeat,
-       read_one_term_egg(Stream,CMD,Vs),
+       read_one_term_egg( SourceModule,Stream,CMD,Vs),
        (CMD==end_of_file->!;true)),Results),!,
-  ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg(S,CMD,Vs)))).
+  ((member(CMD-Vs,Results),CMD\==end_of_file)*->true;read_one_term_egg( SourceModule,S,CMD,Vs)))).
 
 %:- ensure_loaded(library(logicmoo/common_logic/common_logic_sexpr)).
 
 
 
-%% read_egg_term( ?S, ?CMD, ?Vs) is nondet.
+%% read_egg_term( SourceModule, ?S, ?CMD, ?Vs) is nondet.
 %
 % Read Each Term Egg.
 %
-:- reg_egg_builtin(read_egg_term/3).
-:-module_transparent(read_egg_term/3).
+:- reg_egg_builtin(read_egg_term/4).
+:-module_transparent(read_egg_term/4).
 
-read_egg_term(String,CMD0,Vs0):- string(String),!,   
+read_egg_term( SourceModule,String,CMD0,Vs0):- string(String),!,   
    split_string(String,""," \r\n\t",[SString]),
    atom_concat(_,'.',SString),
    open_string(SString,Stream),
    findall(CMD0-Vs0,(
-       catch(read_term(Stream,CMD,[double_quotes(string),module(baseKB),variable_names(Vs)]),_,fail),!,
+       catch(read_term(Stream,CMD,[double_quotes(string),module(SourceModule),variable_names(Vs)]),_,fail),!,
        ((CMD=CMD0,Vs=Vs0);
-        read_egg_term_more(Stream,CMD0,Vs0))),List),!,
+        read_egg_term_more( SourceModule,Stream,CMD0,Vs0))),List),!,
    member(CMD0-Vs0,List).
 
-read_egg_term(S,lispy(CMD),Vs):- text_to_string(S,String),
-   catch((input_to_forms(String,CMD,Vs)),_,fail),!.
+read_egg_term(SourceModule,S,lispy(CMD),Vs):- text_to_string(S,String),
+   '$current_source_module'(SourceModuleWas),
+   setup_call_cleanup('$set_source_module'(SourceModule), notrace(catch((input_to_forms(String,CMD,Vs)),_,fail)),
+    '$set_source_module'(SourceModuleWas)),!.
 
-read_egg_term_more(Stream,CMD,Vs):- 
+read_egg_term_more( SourceModule,Stream,CMD,Vs):- 
        repeat, 
-        catch(read_term(Stream,CMD,[double_quotes(string),module(baseKB),variable_names(Vs)]),_,CMD==err),
+        catch(read_term(Stream,CMD,[double_quotes(string),module(SourceModule),variable_names(Vs)]),_,CMD==err),
         (CMD==err->(!,fail);true),
         (CMD==end_of_file->!;true).
 
-:- user:import(read_egg_term/3).
+:- user:import(read_egg_term/4).
 
 
 :- fixup_exports.
