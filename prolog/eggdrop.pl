@@ -634,6 +634,7 @@ is_irc_cmd_ok( Channel, Agent,_Cmd):- get_isRegistered(Channel,Agent, Type), Typ
 is_irc_cmd_ok(_Channel,_Agent, Cmd):- atom_concat(irc_invoke_,Cmd,CmdOut), \+ current_predicate(irc_cmd:CmdOut/_), !, fail.
 is_irc_cmd_ok( Channel, Agent, Cmd):- get_isRegistered(Channel,Agent, Type), Type == Cmd.
 is_irc_cmd_ok( Channel, Agent,_Cmd):- get_isRegistered(Channel,Agent, execute),!.
+is_irc_cmd_ok(_Channel,_Agent,_Cmd).
 
 trim_text(Text,L,_,TextO):- sub_term(T,L),L\=[],atomic(T),string_concat(T,MText,Text),!,trim_text(MText,TextO).
 trim_text(Text,_,R,TextO):- sub_term(T,R),R\=[],atomic(T),string_concat(MText,T,Text),!,trim_text(MText,TextO).
