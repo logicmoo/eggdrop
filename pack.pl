@@ -1,5 +1,5 @@
 name(eggdrop).
-version('1.3.111').
+version('1.4.111').
 author('Douglas R. Miles','logicmoo@gmail.com').
 title('Hook up to an existing IRC Client called an Eggdrop').
 keywords([irc,networking,chatbots,logicmoo]).

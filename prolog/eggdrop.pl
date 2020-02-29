@@ -573,6 +573,7 @@ filter_chars(How,NameString, Name):- get_text_restore_pred(NameString,DataPred),
 is_printing_alpha_char(' '):- !,fail.
 is_printing_alpha_char('_'):-!.
 is_printing_alpha_char(X):- char_type(X,alpha),!.
+is_printing_alpha_char(X):- char_type(X,digit),!.
 
 
 %% ircEvent( ?DEST, ?User, ?Event) is det.
@@ -688,7 +689,7 @@ maybe_chat_command(Channel,Agent, Modality,W0):- trim_text(W0,W1),W1\==W0, !, ma
 maybe_chat_command(Channel,Agent, Modality,W1):- bot_nick(BotNick), ci_concat_text(BotNick,Right,W1),trim_text(Right,W2),do_irc_cmd_now(Channel,Agent, Modality,bot,W2).
 maybe_chat_command(Channel,Agent, Modality,W1):- string_concat('.',W,W1), maybe_chat_command(Channel,Agent, Modality,W," "),!.
 maybe_chat_command(Channel,Agent, Modality,W1):- maybe_chat_command(Channel,Agent, Modality,W1,":"),!.
-maybe_chat_command(Channel,Agent,_Modality,W1):- atom_contains(W1,"goodbye"),retractall(lmconf:chat_isWith(_Any_,Channel,Agent)), fail.
+maybe_chat_command(Channel,Agent,_Modality,W1):- atom_contains(W1,"goodbye"), \+ (retract(lmconf:chat_isWith(_Any_,Channel,Agent)), fail),!.
 maybe_chat_command(Channel,Agent, Modality,W1):- do_irc_cmd_now(Channel,Agent, Modality,fallback,W1),!.
 
 maybe_chat_command(Channel,Agent, Modality,W, Split):-
