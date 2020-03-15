@@ -2,7 +2,7 @@
   add_maybe_static/2,bot_nick/1,call_in_thread/2,call_for_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
   consultation_thread/2,ctcp/6,ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,
   egg_go_fg/0,eggdropConnect/0,eggdropConnect/2,eggdropConnect/4,eggdrop_bind_user_streams/0,escape_quotes/2,flush_all_output/0,
-  privmsg_prefixed/2,
+  privmsg_prefixed/2,irc_process/3,
   privmsg_prefixed/2,
   privmsg1/2,
   privmsg2/2,
