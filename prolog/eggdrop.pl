@@ -1,5 +1,5 @@
 :- module(eggdrop, [egg_go_maybe/0,
-  add_maybe_static/2,bot_nick/1,call_in_thread/2,call_for_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
+  add_maybe_static/2,bot_nick/1,call_in_thread_ed/2,call_for_results/2,check_put_server_count/1,cit/0,close_ioe/3,consultation_codes/3,
   consultation_thread/2,ctcp/6,ctrl_nick/1,ctrl_pass/1,ctrl_port/1,ctrl_server/1,deregister_unsafe_preds/0,egg_go/0,
   egg_go_fg/0,eggdropConnect/0,eggdropConnect/2,eggdropConnect/4,eggdrop_bind_user_streams/0,escape_quotes/2,flush_all_output/0,
   privmsg_prefixed/2,irc_process/3,
@@ -85,7 +85,7 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
  op(300,fx,'-')),eggdrop).
 
 :- meta_predicate
-        call_in_thread(+,0),
+        call_in_thread_ed(+,0),
         call_for_results(0, ?),
         call_for_results_0(0, ?),
         call_for_results_1(0, ?),
@@ -481,7 +481,7 @@ irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE):-
  my_wdmsg(irc_receive(USER,HOSTMASK,TYPE,DEST,MESSAGE)),!,
    string_to_atom(USER,ID),
    string_to_atom(DEST,DESTID),
-   (call_in_thread(DESTID,
+   (call_in_thread_ed(DESTID,
     (
      locally([
        t_l:put_server_count(0),
@@ -803,7 +803,7 @@ eggdrop_bind_user_streams :-
 
 :- meta_predicate with_error_channel(+,0).
 :- meta_predicate ignore_catch(0).
-:- meta_predicate call_in_thread(+, 0).
+:- meta_predicate call_in_thread_ed(+, 0).
 :- meta_predicate with_no_input(0).
 :- meta_predicate with_output_channel(+,0).
 :- meta_predicate with_input_channel_user(+,+,0).
@@ -968,7 +968,7 @@ is_in_egg:- \+ thread_self(main).
 %
 % Cit.
 %
-cit:- get_time(HH), call_in_thread(dmiles,with_error_channel(dmiles:err,writeln(current_error,HH))).
+cit:- get_time(HH), call_in_thread_ed(dmiles,with_error_channel(dmiles:err,writeln(current_error,HH))).
 
 
 
@@ -991,16 +991,16 @@ cit3:- get_time(HH), writeln(current_error,HH).
 
 
 
-%% call_in_thread(+ID, :Call) is det.
+%% call_in_thread_ed(+ID, :Call) is det.
 %
 % Call In Thread.
 %
 
-call_in_thread(_ ,CMD):- thread_self(main),!,CMD.
-% call_in_thread(ID,CMD):- !,in_threaded_engine(ID,CMD).
-call_in_thread(_ ,CMD):- !,CMD.
-call_in_thread(_ ,CMD):- thread_create(CMD,_,[detached(true)]).
-call_in_thread(_,CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
+call_in_thread_ed(_ ,CMD):- thread_self(main),!,CMD.
+% call_in_thread_ed(ID,CMD):- !,in_threaded_engine(ID,CMD).
+call_in_thread_ed(_ ,CMD):- !,CMD.
+call_in_thread_ed(_ ,CMD):- thread_create(CMD,_,[detached(true)]).
+call_in_thread_ed(_,CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
 
 in_threaded_engine(ID,CMD):- logtalk:threaded_engine_create(CMD,CMD,ID),threaded_engine_next(ID,CMD).
 
