@@ -1463,7 +1463,7 @@ say(_Channel,['']):- !.
 say( Channel,[S,'']):-!, say( Channel,[S]).
 say( Channel,PlString):- is_charlist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
 say( Channel,PlString):- is_codelist(PlString),text_to_string_safe(PlString,String),!,say(Channel,String).
-say( Channel,[N|L]):- (\+ list(L); compound(N) ), !, say( Channel,each([N|L])).
+say( Channel,[N|L]):- (\+ is_list(L); compound(N) ), !, say( Channel,each([N|L])).
 say(_Channel,each(NIL)):- NIL == [],!.
 say( Channel,each(OUT)):- var(OUT), !, say( Channel,OUT),!.
 say( Channel,each([N|L])):- say( Channel,N), say( Channel,each(L)),!.
