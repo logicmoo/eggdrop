@@ -37,7 +37,12 @@ reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
 :- reexport(irc_hooks).
 :- endif.
 
-:- use_module(library(predicate_streams)).
+:- system:use_module(library(occurs)).
+:- system:use_module(library(logicmoo_common)).
+:- system:use_module(library(backcomp)).
+:- system:use_module(library(readutil)).
+:- system:use_module(library(prolog_stream)).
+:- system:use_module(library(predicate_streams)).
 %:- use_module(library(clpfd),except([sum/3])).
 %:- use_module(library(clpfd),except([sum/3,op(_,_,_)])).
 
