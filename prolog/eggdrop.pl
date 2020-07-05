@@ -618,13 +618,14 @@ recordlast(Channel,User,What):-functor(What,F,_),retractall(lmconf:chat_isChanne
 
 
 tg_name_text(StringIn, Name, Value) :-
+        atom_concat("<", _, StringIn),
         replace_in_string("> [edited] ", "> ",StringIn,String),
         sub_string(String, Before, _, After, ">"), Before>1, !,
         sub_string(String, 0, Before, _, NameString),
-        tg_name(NameString, Name),!,
+        filter_tg_name(NameString, Name),!,
         sub_string(String, _, After, 0, Value).
 
-tg_name(NameString, Name):- filter_chars(is_printing_alpha_char,NameString, Name).
+filter_tg_name(NameString, Name):- filter_chars(is_printing_alpha_char,NameString, Name).
 
 filter_chars(How,NameString, Name):- get_text_restore_pred(NameString,DataPred),!, 
    any_to_charlist(NameString,Chars),include(How,Chars,NameChars),call(DataPred,NameChars,Name).
@@ -644,6 +645,7 @@ ircEvent(DEST,User,Stuff):- atom(User),downcase_atom(User,DUser),User\=@=DUser,!
 ircEvent(DEST,User,say(W)):- \+ string(W), if_catch_fail(text_to_string(W,S)),!,ircEvent(DEST,User,say(S)).
 
 %  "<@\003\1Douglas Miles\017\> ?- member(Z,[a])."
+% irc_receive("tglm","~IRChuu@c-73-67-179-188.hsd1.wa.comcast.net","*","#logicmoo",say("<@\003\1Douglas Miles\017\> 123")).
 
 ircEvent(DEST,_User,say(W)):- 
    tg_name_text(W, Name, Value),W\==Value,!,
@@ -988,12 +990,13 @@ is_ained(<==>(_,_)).
 is_ained(=>(_)).
 is_ained(=>(_,_)).
 is_ained(<=>(_,_)).
-is_ained(AIN):- is_ain_clause(AIN).
+%is_ained(AIN):- is_ain_clause(AIN).
 is_ained(M:A):-atom(M),!,is_ained(A).
 
 
 is_ained((_ :- _)).
 is_ained((_ --> _)).
+
 is_ained2(user:_).
 is_ained2(exists(_,_)).
 is_ained2(all(_,_)).
@@ -1077,7 +1080,7 @@ call_in_thread_ed(_ ,CMD):- !,call(CMD).
 call_in_thread_ed(_ ,CMD):- thread_create(CMD,_,[detached(true)]).
 call_in_thread_ed(_,CMD):- thread_self(Self),thread_create(CMD,_,[detached(true),inherit_from(Self)]).
 
-in_threaded_engine(ID,CMD):- logtalk:threaded_engine_create(CMD,CMD,ID),threaded_engine_next(ID,CMD).
+%in_threaded_engine(ID,CMD):- logtalk:threaded_engine_create(CMD,CMD,ID),threaded_engine_next(ID,CMD).
 
 :- dynamic(lmcache:vars_as/1).
 % :- thread_local lmcache:vars_as/1.
