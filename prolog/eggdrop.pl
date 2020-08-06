@@ -33,6 +33,22 @@ lmconf:irc_bot_nick("PrologMUD").
 reg_egg_builtin(PIs):- % baseKB:ain(prologBuiltin(PIs)),
   baseKB:assert_if_new(baseKB:rtArgsVerbatum(PIs)),export(PIs).
 
+:- module_transparent(egg_dmsg_to_main/1).
+:- export(egg_dmsg_to_main/1).
+egg_dmsg_to_main(G):- egg_trace,!, call(G).
+egg_dmsg_to_main(G):- with_dmsg_to_main(G).
+
+
+:- module_transparent(egg_notrace/1).
+:- export(egg_notrace/1).
+egg_notrace(G):- call(G).
+
+:- export(egg_trace/0).
+egg_trace :-  \+ is_in_egg.
+
+is_in_egg:- \+ thread_self(main),  \+ thread_self(swipl), !.
+% is_in_egg.
+
 :- if(exists_source(irc_hooks)).
 :- reexport(irc_hooks).
 :- endif.
@@ -560,10 +576,12 @@ irc_receive(USER,HOSTMASK,UHANDLE,DEST,MESSAGE):-
 
  % :- use_module(library(resource_bounds)).
  %with_rl(Call):- thread_self(main),!,rtrace((guitracer,trace,Call)).
-with_rl(Call):- thread_self(main),!,call(Call).
-with_rl(Call):- !,nodebugx(Call).
+% UNDO with_rl(Call):- egg_trace,!,call(Call).
+% UNDO with_rl(Call):- thread_self(main),!,call(Call).
+with_rl(Call):- call(Call).
+% UNDO with_rl(Call):- !,nodebugx(Call).
 % with_rl(Goal):- show_call(eggdrop,nodebugx(resource_bounded_call(Goal, 1000.0, _Status, []))).
-with_rl(Call):- nodebugx(call_with_time_limit(30,Call)).
+% UNDO with_rl(Call):- nodebugx(call_with_time_limit(30,Call)).
 
 % ===================================================================
 % IRC EVENTS
@@ -665,7 +683,7 @@ ircEvent(DEST,User,say(W)):-
 % ignore some inputs
 ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,!.
 ircEvent(Channel,Agent,Event) :- 
-   ignore_catch(ignore(once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))))),!,
+ %  ignore_catch(ignore(once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))))),!,
    ignore_catch(ignore(ircEventNow(Channel,Agent,Event))),!,
    ignore_catch(recordlast(Channel,Agent,Event)),!.
 
@@ -788,9 +806,10 @@ do_irc_cmd_now(Channel,Agent, Modality,Cmd,W1):-
 
 irc_process(Channel,Agent,G):- 
   with_error_channel(Agent,
-   with_dmsg_to_main(( (thread_self(Self), (Self\==main -> (tnodebug(Self)) ; true)),
+   egg_dmsg_to_main(( (thread_self(Self), (Self\==main -> nop(tnodebug(Self)) ; true)),
      with_output_channel(Channel,
        with_no_input(G))))).
+
 
 
 
@@ -855,7 +874,7 @@ unreadable(UR):-my_wdmsg(unreadable(UR)).
 %
 
 % eggdrop_bind_user_streams :- !.
-% eggdrop_bind_user_streams :- thread_self(main),!.
+eggdrop_bind_user_streams :- egg_trace,!.
 eggdrop_bind_user_streams :-
   user:((
 	user:open_prolog_stream(eggdrop_io, write, Out, []),
@@ -1039,8 +1058,6 @@ irc_really_call(Channel,Agent,CALL, Vs):-
 
   
 
-is_in_egg:- \+ thread_self(main),  \+ thread_self(swipl).
-
 %% cit is det.
 %
 % Cit.
@@ -1073,7 +1090,7 @@ cit3:- get_time(HH), writeln(current_error,HH).
 % Call In Thread.
 %
 
-call_in_thread_ed(_ ,CMD):- thread_self(main),!,call(CMD).
+call_in_thread_ed(_ ,CMD):- egg_trace,!,call(CMD).
 % call_in_thread_ed(ID,CMD):- !,in_threaded_engine(ID,CMD).
 call_in_thread_ed(_ ,CMD):- !,call(CMD).
 % above cut all
@@ -1273,7 +1290,6 @@ call_for_results_0(CMDI,Vs):-
 :- reg_egg_builtin(call_for_results_1/2).
 
 
-
 %% call_for_results_1( :GoalCMD, ?Vs) is det.
 %
 % call Using results  Primary Helper.
@@ -1318,9 +1334,6 @@ call_for_results_3(CCMD,Vs):-
    user:show_call(eggdrop,(CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
      (once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('% ')) ; (once(\+ \+ write_varvalues2(Vs)),N>28)))).
 
-:- reg_egg_builtin(with_output_channel/2).
-:-module_transparent(with_output_channel(+,0)).
-% with_output_channel(Channel,CMD):- CMD.
 
 
 
@@ -1328,7 +1341,10 @@ call_for_results_3(CCMD,Vs):-
 %
 % Using Output Channel.
 %
-with_output_channel(_Channel,CMD):- \+ is_in_egg,!,call(CMD).
+
+:- reg_egg_builtin(with_output_channel/2).
+:-module_transparent(with_output_channel(+,0)).
+% with_output_channel(_Channel,CMD):- egg_trace,!,call(CMD).
 with_output_channel(Channel,CMD):- 
   with_output_to_predicate(say(Channel),CMD).
 
@@ -1339,7 +1355,7 @@ with_output_channel(Channel,CMD):-
 %
 % Using Input Channel User.
 %
-with_input_channel_user(_,_,CMD):- \+ is_in_egg,!,call(CMD).
+with_input_channel_user(_,_,CMD):- egg_trace,!,call(CMD).
 with_input_channel_user(_,_,CMD):- !, with_no_input(CMD).
 with_input_channel_user(Channel,User,CMD):-
   with_input_from_predicate(last_read_from(Channel,User),CMD).
@@ -1353,14 +1369,13 @@ with_input_channel_user(Channel,User,CMD):-
 %
 % Using Input/output.
 %
-with_io(CMD):- \+ is_in_egg,!,call(CMD).
+
+% with_io(CMD):- \+ is_in_egg,!,call(CMD).
 with_io(CMD):-
- with_dmsg_to_main((
+ egg_dmsg_to_main((
   current_input(IN),current_output(OUT),get_thread_current_error(Err),
   setup_call_cleanup(set_prolog_IO(IN,OUT,Err),CMD,(set_input(IN),set_output(OUT),set_current_error(Err))))).
 
-%with_no_input(CMD):-  current_input(Prev), open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,call_cleanup(CMD,set_input(Prev)).
-% with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,current_error ),CMD.
 
 
 
@@ -1368,7 +1383,9 @@ with_io(CMD):-
 %
 % Using No Input.
 %
-with_no_input(CMD):- CMD.
+%with_no_input(CMD):-  current_input(Prev), open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),set_input(In),!,call_cleanup(CMD,set_input(Prev)).
+% with_no_input(CMD):- open_chars_stream([e,n,d,'_',o,f,'_',f,i,l,e,'.'],In),current_output(OUT), set_prolog_IO(In,OUT,current_error ),CMD.
+with_no_input(CMD):- ignore(egg_trace), call(CMD).
 
 
 
@@ -1385,7 +1402,7 @@ if_catch_fail(CALL):- catch(CALL,E,(my_wdmsg(caught(if_catch_fail,E,CALL)),fail)
 
 
 
-:- meta_predicate with_error_to_output(0).
+:- meta_predicate(with_error_to_output(0)).
 
 
 
@@ -1393,7 +1410,8 @@ if_catch_fail(CALL):- catch(CALL,E,(my_wdmsg(caught(if_catch_fail,E,CALL)),fail)
 %
 % Using Error Converted To Output.
 %
-% with_error_to_output(CMD):- !, CMD.
+
+% with_error_to_output(CMD):- egg_trace, !, call(CMD).
 with_error_to_output(CMD):-
    current_input(IN),current_output(OUT),!,
    with_io((set_prolog_IO(IN,OUT,OUT), CMD)).
@@ -1409,7 +1427,7 @@ with_error_to_output(CMD):-
 % Using Error Channel.
 %
 
-with_error_channel(_Agent, CMD):-  \+ is_in_egg,!,call(CMD).
+% with_error_channel(_Agent, CMD):- \+ is_in_egg,!,call(CMD).
 /*
 with_error_channel(_Agent, CMD):-  !, CMD.
 with_error_channel(Agent,CMD):- fail,
@@ -1456,9 +1474,9 @@ read_codes_and_send(IN,Agent):- repeat,read_line_to_string(IN,Codes),say(Agent,C
 % Update Changed Files Eggdrop.
 %
 
-  % update_changed_files_eggdrop :- !.
+update_changed_files_eggdrop :- egg_trace, !.
 update_changed_files_eggdrop :-
- with_dmsg_to_main(( with_no_dmsg((
+ egg_dmsg_to_main(( with_no_dmsg((
         set_prolog_flag(verbose_load,true),
         ensure_loaded(library(make)),
 	findall(File, make:modified_file(File), Reload0),
@@ -1534,6 +1552,9 @@ not_bot(A,Bot,A):- is_bot(Bot),!.
 %
 % Modality Prefixed.
 %
+
+% say(CC,Text):- notrace((stream_property(S,file_no(2)),flush_output(S), format(S,'~N~q~N',[say(CC,Text)]),flush_output(S))),fail.
+
 say(C:CC,Text):-nonvar(C),C=CC,!,say(C,Text).
 say(A1:A2,Out):- not_bot(A1,A2,A3),say(A3,Out),!.
 say(C:A,Text):- nonvar(A), !, locally(t_l:session_id(A), say(C,Text)).
@@ -1839,6 +1860,7 @@ read_each_term_egg(S,CMD,Vs):-
 %
 :- reg_egg_builtin(read_egg_term/4).
 :-module_transparent(read_egg_term/4).
+:- module_transparent(read_egg_term_0/4).
 
 read_egg_term( SourceModule,String,CMD0,Vs0):-
   quietly(read_egg_term_0( SourceModule,String,CMD0,Vs0)).
