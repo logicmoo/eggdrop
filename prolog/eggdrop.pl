@@ -658,6 +658,12 @@ is_printing_alpha_char(X):- char_type(X,digit),!.
 %
 % Irc Event.
 %
+
+ircEvent(Channel,Agent,Event) :- format(codes(Codes),"~w",[ircEvent(Channel,Agent,Event)]), 
+   member(E,Codes),integer(E),
+   E > 127, !,
+   wdmsg(ircEvent(Channel,Agent,Event)),!.
+
 ircEvent(DEST,User,Stuff):- string(User),string_lower(User,DUser),User\=@=DUser,!,ircEvent(DEST,DUser,Stuff).
 ircEvent(DEST,User,Stuff):- atom(User),downcase_atom(User,DUser),User\=@=DUser,!,ircEvent(DEST,DUser,Stuff).
 ircEvent(DEST,User,say(W)):- \+ string(W), if_catch_fail(text_to_string(W,S)),!,ircEvent(DEST,User,say(S)).
@@ -682,11 +688,11 @@ ircEvent(DEST,User,say(W)):-
 
 % ignore some inputs
 ircEvent(Channel,Agent,_):- (ignored_channel(Channel) ; ignored_source(Agent)) ,!.
+
 ircEvent(Channel,Agent,Event) :- 
  %  ignore_catch(ignore(once(doall(call_no_cuts(irc_hooks:on_irc_msg(Channel,Agent,Event)))))),!,
    ignore_catch(ignore(ircEventNow(Channel,Agent,Event))),!,
    ignore_catch(recordlast(Channel,Agent,Event)),!.
-
 
 ircEventNow(Channel,Agent,ctcp(TYPE,MSG)):- /*TYPE=="NOTICE",*/  
    if_catch_fail(say_owner(ircEvent(Channel,Agent,ctcp(TYPE,MSG)))), fail.
