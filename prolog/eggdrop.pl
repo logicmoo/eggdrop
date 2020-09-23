@@ -470,6 +470,7 @@ get2react([L,NICK,HOSTMASK,UHANDLE,CHANNEL|IST1]):- INFO=..[L|IST1],
   show_failure(irc_receive(NICK, HOSTMASK,UHANDLE,CHANNEL, INFO)).
  
 :- thread_local(t_l: session_id/1).
+:- thread_local(t_l: session_prefix/1).
 
 % ===================================================================
 % IRC interaction
@@ -632,8 +633,21 @@ irc_hooks:on_irc_msg(_Channel,_User,_Stuff):-fail.
 recordlast(Channel,User,say(What)):-!,retractall(lmconf:chat_isChannelUserAct(Channel,User,say,_)),asserta(lmconf:chat_isChannelUserAct(Channel,User,say,What)),!.
 recordlast(Channel,User,What):-functor(What,F,_),retractall(lmconf:chat_isChannelUserAct(Channel,User,F,_)),asserta(lmconf:chat_isChannelUserAct(Channel,User,F,What)),!.
 
-% awaiting some inputs
+tg_name_name_text(User, String, User, Value) :-
+  \+ t_l:session_prefix(_),
+  sub_string(String, Before, _, _, ': '), Before>1,!, 
+  sub_string(String, 0, Before, _, ChannelTrim),
+  \+ atom_contains(ChannelTrim, " "),
+  filter_tg_name(ChannelTrim, ChannelPad),  
+  trim(ChannelPad,ChannelTrimPad),atom_codes(Channel,ChannelTrimPad),
+  set_session_prefix(Channel),
+  After is Before+2,
+  sub_string(String, After,_, 0, Value), !.
 
+tg_name_name_text(_User, String, Name, Value) :- 
+  tg_name_text( String, Name, Value),!.
+
+% awaiting some inputs
 
 tg_name_text(StringIn, Name, Value) :-
         atom_concat("<", _, StringIn),
@@ -641,8 +655,9 @@ tg_name_text(StringIn, Name, Value) :-
         sub_string(String, Before, _, After, ">"), Before>1, !,
         sub_string(String, 0, Before, _, NameString),
         filter_tg_name(NameString, Name),!,
-        sub_string(String, _, After, 0, Value).
+        sub_string(String, After,_, 0, Value).
 
+filter_tg_name(StringIn, Name):- replace_in_string("[d]"," ",StringIn,String),StringIn\==String,!,filter_tg_name(String, Name).
 filter_tg_name(NameString, Name):- filter_chars(is_printing_alpha_char,NameString, Name).
 
 filter_chars(How,NameString, Name):- get_text_restore_pred(NameString,DataPred),!, 
@@ -671,8 +686,8 @@ ircEvent(DEST,User,say(W)):- \+ string(W), if_catch_fail(text_to_string(W,S)),!,
 %  "<@\003\1Douglas Miles\017\> ?- member(Z,[a])."
 % irc_receive("tglm","~IRChuu@c-73-67-179-188.hsd1.wa.comcast.net","*","#logicmoo",say("<@\003\1Douglas Miles\017\> 123")).
 
-ircEvent(DEST,_User,say(W)):- 
-   tg_name_text(W, Name, Value),W\==Value,!,
+ircEvent(DEST,User,say(W)):- 
+   tg_name_name_text(User, W, Name, Value),W\==Value,!,
    locally(t_l:default_user(Name),
       ircEvent(DEST,Name,say(Value))).
 
@@ -1588,10 +1603,15 @@ say( Channel,Data):- sformat(String,'~p',[Data]),say(Channel,String).
 %
 % Get Session Prefix.
 %
+
+set_session_prefix(ID):- asserta(t_l:session_prefix(ID)),!.
+
+get_session_prefix(ID):-t_l:session_prefix(ID),!.
 get_session_prefix(ID):-t_l:session_id(ID),!.
 get_session_prefix(ID):-t_l:default_user(ID),!.
 get_session_prefix('').
 
+get_session_prefix_maybe(ID):-t_l:session_prefix(ID),!.
 get_session_prefix_maybe(ID):-t_l:default_user(ID),!.
 get_session_prefix_maybe(ID):- get_session_prefix(ID),ID\==''.
 get_session_prefix_maybe(ID):-t_l:default_channel(ID),!.
