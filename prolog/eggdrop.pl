@@ -147,8 +147,8 @@ my_wdmsg0(Msg):- debugm(Msg).
 my_wdmsg(S,Msg):- string(Msg),format(S,'~N% ~w~N',[Msg]),flush_output_safe(S),!.
 my_wdmsg(S,Msg):- format(S,'~N% ~q.~n',[Msg]),flush_output_safe(S),!.
 
-:-dynamic(lmconf:chat_isWith/3).
-:- thread_local(t_l:(disable_px)).
+:- dynamic(lmconf:chat_isWith/3).
+:- thread_local(t_l:disable_px/0).
 
 egg_to_string(A,S):- quietly(egg_to_string0(A,S)).
 egg_to_string0(A,S):- var(A),!,trace_or_throw(var_egg_to_string(A,S)).
@@ -1364,7 +1364,8 @@ call_for_results_3(CCMD,Vs):-
 %
 
 :- reg_egg_builtin(with_output_channel/2).
-:-module_transparent(with_output_channel(+,0)).
+:-meta_predicate(with_output_channel(+,0)).
+:-module_transparent(with_output_channel/2).
 % with_output_channel(_Channel,CMD):- egg_trace,!,call(CMD).
 with_output_channel(Channel,CMD):- 
   with_output_to_predicate(say(Channel),CMD).
