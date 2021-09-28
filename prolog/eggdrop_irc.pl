@@ -190,7 +190,7 @@ ctrl_port(3334).
 
 
 :- module_transparent(ircEvent/3).
-% from https://github.com/TeamSPoon/PrologMUD/tree/master/src_lib/logicmoo_util 
+% from https://github.com/logicmoo/PrologMUD/tree/master/src_lib/logicmoo_util 
 % supplies locally/2,atom_concats/2, dmsg/1, my_wdmsg/1, must/1, if_startup_script/0
 
 /*
@@ -1507,8 +1507,6 @@ put_egg(X):-put_egg('~w',[X]),!.
 %
 put_egg(X,Y):-once(egg:stdio(_Agent,_InStream,OutStream)),
   once((sformat(S,X,Y),format(OutStream,'~s\n',[S]),!,flush_output(OutStream))).
-
-
 
 
 any_to_codes(Data,Codes):- notrace(any_to_codelist(Data,Codes)).
