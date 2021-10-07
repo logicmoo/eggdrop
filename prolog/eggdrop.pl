@@ -572,9 +572,15 @@ irc_receive(USER,HOSTMASK,UHANDLE,DEST,MESSAGE):-
        t_l:default_user(USER),
        t_l:session_id(ID),
        t_l:current_irc_receive(USER, HOSTMASK,UHANDLE,DEST,MESSAGE)],
-        with_rl((eggdrop_bind_user_streams, quietly(ignore(once(eggdrop:ircEvent(DEST,USER,MESSAGE)))))))))),!.
+        with_rl((eggdrop_bind_user_streams, 
+          quietly(ignore(once(eggdrop:ircEvent(DEST,USER,MESSAGE)))))))))),!.
 
 
+external_chat_event(Callback,DEST,USER,MESSAGE):- 
+   HOSTMASK = UHANDLE,
+   UHANDLE = USER,
+   locally(t_l:egg_msg_override(Callback),
+    irc_receive(USER,HOSTMASK,UHANDLE,DEST,MESSAGE)).
 
 
 %% with_rl( :Call) is det.
@@ -1388,13 +1394,15 @@ call_for_results_1(CMD,Vs):-
  % b_setval('$variable_names',Vs),
  flag(num_sols,_,0),
  (call_for_results_2(CMD,Vs) *->
-  (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), write(' '),(X=true->write(det(YN,N));write(nondet(YN,N)))) ;
+  (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'), (X=true->write_done(det(YN,N));write_done(nondet(YN,N)))) ;
 
-     (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'),write(' '),(X=true->write(det(YN,N));write(nondet(YN,N))))),
+     (deterministic(X),flag(num_sols,N,0),(N\==0->YN='Yes';YN='No'),(X=true->write_done(det(YN,N));write_done(nondet(YN,N))))),
  flush_all_output.
 
+use_egg_override(PredO1):- t_l:egg_msg_override(PredO1), PredO1\==false.
 
-
+write_done(Data):- use_egg_override(PredO1),!,call(PredO1,write_done(Data)).
+write_done(Data):- write(' '),write(Data).
 
 :-module_transparent(call_for_results_2/2).
 :- reg_egg_builtin(call_for_results_2/2).
@@ -1422,6 +1430,10 @@ call_for_results_2(CCMD,Vs):- call_for_results_3(CCMD,Vs).
 %
 call_for_results_3(CCMD,Vs):-
    user:show_call(eggdrop,(CCMD,flush_output)), flag(num_sols,N,N+1), deterministic(Done),
+   show_each_result(CCMD,Done,N,Vs).
+
+show_each_result(CCMD,Done,N,Vs):- use_egg_override(PredO1),!,call(PredO1,show_each_result(CCMD,Done,N,Vs)).
+show_each_result(_CCMD,Done,N,Vs):-
      once(once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('% ')) ; (once(\+ \+ write_varvalues2(Vs)),N>28)))).
 
 
@@ -1646,7 +1658,7 @@ not_bot(A,Bot,A):- is_bot(Bot),!.
 
 % say(CC,Text):- notrace((stream_property(S,file_no(2)),flush_output(S), format(S,'~N~q~N',[say(CC,Text)]),flush_output(S))),fail.
 
-say(C:CC,Text):-nonvar(C),C=CC,!,say(C,Text).
+say(C:CC,Text):- nonvar(C),C=CC,!,say(C,Text).
 say(A1:A2,Out):- not_bot(A1,A2,A3),say(A3,Out),!.
 say(C:A,Text):- nonvar(A), !, locally(t_l:session_id(A), say(C,Text)).
 
@@ -1780,7 +1792,7 @@ privmsg1(Channel,Text):-
 % Privmsg Extended Helper.
 %
 privmsg2(Channel,Data):- squelch_empty('$privmsg2',Channel,Data),!.
-privmsg2(Channel,Text):- any_to_codelist(Channel, EChannel), any_to_codelist(Text, EText), privmsg3(EChannel, EText),!.
+privmsg2(Channel,Text):- any_to_codelist(Channel, EChannel), any_to_codelist(Text, EText), put_msg(EChannel, EText),!.
 /*
 privmsg2(Channel,Text):- egg_to_string(Channel,CS),escape_quotes(Text,N),
   sleep(0.2),sformat(S,'\n.tcl putquick "PRIVMSG ~s :~s"\n',[CS,N]),
@@ -1790,19 +1802,18 @@ privmsg2(Channel,Text):- egg_to_string(Channel,CS),escape_quotes(Text,N),
 */
 escape_channel_name(C0,D):- text_to_string(C0,C), replace_in_string("[","\\[",C,CD),replace_in_string("]","\\]",CD,D).
 
+:- thread_local(t_l:egg_msg_override/1).
 
-%privmsg3(EChannel, EText):- put_egg('\n.msg ~s ~s\n',[EChannel, EText]),!.
-privmsg3(Channel,  Text):- sleep(0.2), escape_quotes(Text, EText), escape_channel_name(Channel, EChannel), put_egg('\n.tcl putquick "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
-%privmsg3(EChannel,  Text):- escape_quotes(Text, EText), put_egg('\n.tcl putserv "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
-
-
-
-
+%put_msg(EChannel, EText):- put_egg('\n.msg ~s ~s\n',[EChannel, EText]),!.
+put_msg(Channel,  Text):- use_egg_override(PredO1),!,call(PredO1,put_msg(Channel,  Text)).
+put_msg(Channel,  Text):- sleep(0.2), escape_quotes(Text, EText), escape_channel_name(Channel, EChannel), put_egg('\n.tcl putquick "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
+%put_msg(EChannel,  Text):- escape_quotes(Text, EText), put_egg('\n.tcl putserv "PRIVMSG ~s :~s"\n',[EChannel, EText]),!.
 
 %% put_notice( ?OutStream, ?Channel, ?Text) is det.
 %
 % Putnotice.
 %
+put_notice(Channel,Text):- use_egg_override(PredO1),!,call(PredO1,put_notice(Channel,Text)).
 put_notice(Channel,Data):- squelch_empty('$put_notice',Channel,Data),!.
 put_notice(Channel,Text):-
    any_to_codelist(Channel, EChannel), escape_quotes(Text, EText),
