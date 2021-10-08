@@ -575,12 +575,11 @@ irc_receive(USER,HOSTMASK,UHANDLE,DEST,MESSAGE):-
         with_rl((eggdrop_bind_user_streams, 
           quietly(ignore(once(eggdrop:ircEvent(DEST,USER,MESSAGE)))))))))),!.
 
-
+:- meta_predicate(external_chat_event(1,+,+,+)).
 external_chat_event(Callback,DEST,USER,MESSAGE):- 
-   HOSTMASK = UHANDLE,
    UHANDLE = USER,
    locally(t_l:egg_msg_override(Callback),
-    irc_receive(USER,HOSTMASK,UHANDLE,DEST,MESSAGE)).
+    irc_receive(USER,Callback,UHANDLE,DEST,MESSAGE)).
 
 
 %% with_rl( :Call) is det.
