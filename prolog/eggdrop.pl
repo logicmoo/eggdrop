@@ -1149,6 +1149,7 @@ irc_really_call(Channel,Agent,CALL, Vs):-
    !.
 
 
+emlmp(Goal):- use_egg_override(PredO1),!,call(PredO1,emlmp(Goal)).
 emlmp(Goal):- current_predicate(maybe_long_message_printer/2),!,maybe_long_message_printer(4, Goal).
 emlmp(Goal):- call(Goal).
 
@@ -1287,18 +1288,18 @@ write_v(V):- attvar(V),if_defined(attvar_to_dict_egg(V,Dict)),writeq(Dict),!.
 write_v(V):- var(V),(var_property(V,name(EN))->write(EN);writeq(V)),!.
 write_v(V):- writeq(V).
 
-:- reg_egg_builtin(write_varvalues2/1).
+:- reg_egg_builtin(write_varbindings/1).
 
 
 
-%% write_varvalues2( ?Vs) is det.
+%% write_varbindings( ?Vs) is det.
 %
 % Write Varvalues Extended Helper.
 %
-% write_varvalues2(Vs):-lmcache:vars_as(comma),!,write_varcommas2(Vs),write_residuals(Vs).
+% write_varbindings(Vs):-lmcache:vars_as(comma),!,write_varcommas2(Vs),write_residuals(Vs).
 
-write_varvalues2([]):-!,flush_all_output.
-write_varvalues2(Vs):-
+write_varbindings([]):-!,flush_all_output.
+write_varbindings(Vs):-
    flush_all_output,
    write(' % '),
    write_varvalues3(Vs),
@@ -1433,7 +1434,7 @@ call_for_results_3(CCMD,Vs):-
 
 show_each_result(CCMD,Done,N,Vs):- use_egg_override(PredO1),!,call(PredO1,show_each_result(CCMD,Done,N,Vs)).
 show_each_result(_CCMD,Done,N,Vs):-
-     once(once((Done==true -> (once(\+ \+ write_varvalues2(Vs)),write('% ')) ; (once(\+ \+ write_varvalues2(Vs)),N>28)))).
+     once(once((Done==true -> (once(\+ \+ write_varbindings(Vs)),write('% ')) ; (once(\+ \+ write_varbindings(Vs)),N>28)))).
 
 
 
@@ -1771,6 +1772,7 @@ privmsg(Channel,Codes):- privmsg_prefixed(Channel,Codes).
 
 
 privmsg_prefixed(Channel, Data):- squelch_empty('$privmsg_prefixed',Channel,Data),!.
+privmsg_prefixed(Channel, Text):- use_egg_override(PredO1),!,call(PredO1,put_msg(Channel,  Text)).
 privmsg_prefixed(Channel, Text) :- any_to_codelist(Text, Out),
    ((get_session_prefix_maybe(Prefix), \+ same_channels(Prefix,Channel)) ->
      (format(codes(Data),'~w: ~s',[Prefix,Out]),privmsg1(Channel,Data));privmsg1(Channel,Out)).
@@ -1781,6 +1783,7 @@ privmsg_prefixed(Channel, Text) :- any_to_codelist(Text, Out),
 %
 
 privmsg1(Channel,Data):- squelch_empty('$privmsg1',Channel,Data),!.
+privmsg1(Channel,Text):- use_egg_override(PredO1),!,call(PredO1,put_msg(Channel,  Text)).
 privmsg1(Channel,Text):-
    once(check_put_server_count(50)->privmsg2(Channel,Text);
    ignore(check_put_server_count(100)->privmsg_session(Channel,Text);true)).
@@ -1791,6 +1794,7 @@ privmsg1(Channel,Text):-
 % Privmsg Extended Helper.
 %
 privmsg2(Channel,Data):- squelch_empty('$privmsg2',Channel,Data),!.
+privmsg2(Channel,Text):- use_egg_override(PredO1),!,call(PredO1,put_msg(Channel,  Text)).
 privmsg2(Channel,Text):- any_to_codelist(Channel, EChannel), any_to_codelist(Text, EText), put_msg(EChannel, EText),!.
 /*
 privmsg2(Channel,Text):- egg_to_string(Channel,CS),escape_quotes(Text,N),
